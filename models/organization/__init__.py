@@ -1,0 +1,153 @@
+from database import Base
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Boolean,
+    ForeignKey,
+    DateTime,
+    Float,
+    Text,
+)
+from sqlalchemy.orm import relationship
+from helpers import generate_uuid
+from datetime import datetime, timedelta
+from constants import OTP_EXPIRES
+
+
+class Organization(Base):
+    __tablename__ = "organization"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(50))
+    address = Column(Text, nullable=True)
+    country = Column(String(50), nullable=True)
+    state = Column(String(50), nullable=True)
+    city = Column(String(50), nullable=True)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(50), nullable=True)
+    website = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    active = Column(Boolean, default=True)
+    deleted = Column(Boolean, default=False)
+
+
+class SideMenu(Base):
+    __tablename__ = "side_menu"
+
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(70), nullable=False)
+    icon = Column(String(200), nullable=True)
+    tag = Column(Integer, unique=True, nullable=False)
+    description = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    deleted = Column(Boolean, default=False)
+
+    roles = relationship(
+        "RoleSideMenu", back_populates="side_menu", cascade="all, delete-orphan"
+    )
+    sub_side_menus = relationship(
+        "SubSideMenu", back_populates="side_menu", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<SideMenu(id={self.id}, name={self.name}, tag={self.tag})>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "icon": self.icon,
+            "tag": self.tag,
+            "description": self.description,
+            "sub_side_menus": [
+                sub_side_menu.to_dict() for sub_side_menu in self.sub_side_menus
+            ],
+        }
+
+
+class SubSideMenu(Base):
+    __tablename__ = "sub_side_menu"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(70), nullable=False)
+    side_menu_id = Column(String(50), ForeignKey("side_menu.id"), nullable=False)
+
+    side_menu = relationship("SideMenu", back_populates="sub_side_menus")
+
+    roles = relationship(
+        "RoleSubSideMenu", back_populates="sub_side_menu", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<SubSideMenu(id={self.id}, name={self.name})>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
+
+class RoleSideMenu(Base):
+    __tablename__ = "role_side_menu"
+    role_id = Column(String(50), ForeignKey("roles.id"), primary_key=True)
+    side_menu_id = Column(String(50), ForeignKey("side_menu.id"), primary_key=True)
+
+    role = relationship("Roles", back_populates="side_menus")
+    side_menu = relationship("SideMenu", back_populates="roles")
+
+    def __repr__(self):
+        return (
+            f"<RoleSideMenu(role_id={self.role_id}, side_menu_id={self.side_menu_id})>"
+        )
+
+
+class RoleSubSideMenu(Base):
+    __tablename__ = "role_sub_side_menu"
+    role_id = Column(String(50), ForeignKey("roles.id"), primary_key=True)
+    sub_side_menu_id = Column(
+        String(50), ForeignKey("sub_side_menu.id"), primary_key=True
+    )
+
+    role = relationship("Roles", back_populates="sub_side_menus")
+    sub_side_menu = relationship("SubSideMenu", back_populates="roles")
+
+    def __repr__(self):
+        return f"<RoleSubSideMenu(role_id={self.role_id}, sub_side_menu_id={self.sub_side_menu_id})>"
+
+
+"""
+async def manage_side_menus(data: dict, db: Session = Depends(get_db)):
+    role_id = data.get("role_id")
+    side_menu_ids = data.get("side_menu_ids", [])
+
+    # Validate role existence
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+
+    if side_menu_ids:
+        # Assign new side menus to the role
+        for menu_id in side_menu_ids:
+            side_menu = db.query(SideMenu).filter(SideMenu.id == menu_id).first()
+            if side_menu:
+                # Check if already assigned
+                existing_mapping = db.query(RoleSideMenu).filter(
+                    RoleSideMenu.role_id == role_id,
+                    RoleSideMenu.side_menu_id == menu_id
+                ).first()
+                if not existing_mapping:
+                    role_side_menu = RoleSideMenu(role_id=role_id, side_menu_id=menu_id)
+                    db.add(role_side_menu)
+            else:
+                raise HTTPException(status_code=404, detail=f"Side menu {menu_id} not found")
+    else:
+        # Unassign all side menus from the role
+        existing_mappings = db.query(RoleSideMenu).filter(RoleSideMenu.role_id == role_id).all()
+        for mapping in existing_mappings:
+            db.delete(mapping)
+
+    db.commit()  # Commit the changes to the database
+    return {"message": "Side menus updated successfully"}
+
+"""
