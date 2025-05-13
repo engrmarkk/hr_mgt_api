@@ -87,7 +87,6 @@ async def login(
         raise http_exc
     except Exception as e:
         logger.exception("traceback from login")
-        logger.error(f"{e} : error from login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=EXCEPTION_MESSAGE
@@ -141,7 +140,6 @@ async def get_token(
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from login")
-        logger.error(f"{e} : error from login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
@@ -204,7 +202,6 @@ async def verify_email(verify_data: VerifyEmailSchema, db: Session = Depends(get
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from verify email")
-        logger.error(f"{e} : error from login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
@@ -263,7 +260,6 @@ async def resend_otp(
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from resend otp")
-        logger.error(f"{e} : error from login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
@@ -306,7 +302,6 @@ async def reset_password_req(
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from reset password request")
-        logger.error(f"{e} : error from reset password request")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
@@ -366,7 +361,6 @@ async def reset_password(request_data: ResetTokenSchema, db: Session = Depends(g
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from reset password")
-        logger.error(f"{e} : error from reset password")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
