@@ -45,7 +45,6 @@ async def get_organization(
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from get organization")
-        logger.error(f"{e} : error from get organization")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
@@ -70,7 +69,6 @@ async def get_all_side_menus(
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from get side menu")
-        logger.error(f"{e} : error from get side menu")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
