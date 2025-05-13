@@ -28,7 +28,6 @@ async def create_side_menu(menu_data: MiscMenuSchema, db: Session = Depends(get_
         raise http_exc
     except Exception as e:
         logger.exception("traceback from login")
-        logger.error(f"{e} : error from login")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
