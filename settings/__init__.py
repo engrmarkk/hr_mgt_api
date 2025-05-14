@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from apis import ping_router
+from apis import ping_router, auth_router, user_router
 from database import engine, Base
 from fastapi.middleware.cors import CORSMiddleware
 from middlewares import MaintenanceMiddleware, RateLimitMiddleware
@@ -60,5 +60,6 @@ def create_app():
     Base.metadata.create_all(engine)
 
     app.include_router(ping_router)
-    # app.include_router(auth_router, prefix=f"/{API_VERSION}")
+    app.include_router(auth_router, prefix=f"/{API_VERSION}")
+    app.include_router(user_router, prefix=f"/{API_VERSION}")
     return app
