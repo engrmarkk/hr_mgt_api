@@ -87,6 +87,12 @@ class Roles(Base):
     def __repr__(self):
         return f"<Role(id={self.id}, name={self.name})>"
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
 
 class Department(Base):
     __tablename__ = "departments"
@@ -105,12 +111,14 @@ class Users(Base):
     password = Column(Text)
     phone_number = Column(String(50), unique=True, nullable=True)
     date_joined = Column(DateTime, nullable=True)
-    email_verified = Column(Boolean, default=False)
+    email_verified = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     last_login = Column(DateTime, default=datetime.now)
     is_superadmin = Column(Boolean, default=False)
     active = Column(Boolean, default=True)
     deleted = Column(Boolean, default=False)
+    organization_id = Column(String(50), ForeignKey("organization.id"), nullable=True)
+    organization = relationship("Organization", back_populates="users")
     role_id = Column(String(50), ForeignKey("roles.id"), nullable=True)
     department_id = Column(String(50), ForeignKey("departments.id"), nullable=True)
     user_sessions = relationship("UserSessions", backref="user", uselist=False)

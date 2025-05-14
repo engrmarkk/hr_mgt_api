@@ -15,10 +15,47 @@ from datetime import datetime, timedelta
 from constants import OTP_EXPIRES
 
 
+class Reasons(Base):
+    __tablename__ = "reasons"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(50))
+    description = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    deleted = Column(Boolean, default=False)
+    organization = relationship("Organization", backref="reason")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+        }
+
+
+# industry model
+class Industry(Base):
+    __tablename__ = "industry"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(50))
+    deleted = Column(Boolean, default=False)
+    organization = relationship("Organization", back_populates="indust")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
+
+
 class Organization(Base):
     __tablename__ = "organization"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     name = Column(String(50))
+    domain = Column(String(50))
+    size = Column(String(50))
+    industry = Column(String(50), ForeignKey("industry.id"))
+    indust = relationship("Industry", back_populates="organization")
+    reason_id = Column(String(50), ForeignKey("reasons.id"))
     address = Column(Text, nullable=True)
     country = Column(String(50), nullable=True)
     state = Column(String(50), nullable=True)
@@ -30,6 +67,7 @@ class Organization(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     active = Column(Boolean, default=True)
     deleted = Column(Boolean, default=False)
+    users = relationship("Users", back_populates="organization")
 
 
 class SideMenu(Base):

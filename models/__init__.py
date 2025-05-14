@@ -19,4 +19,6 @@ from models.organization import (
     SubSideMenu,
     RoleSideMenu,
     RoleSubSideMenu,
+    Industry,
+    Reasons
 )
