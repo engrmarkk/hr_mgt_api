@@ -10,8 +10,10 @@ from cruds import (
     email_exists,
     create_or_update_user_session,
     save_user_email_password,
+    save_user_data,
     save_default_side_menus,
     save_default_roles,
+    get_steps
 )
 from helpers import (
     validate_password,
@@ -79,7 +81,8 @@ async def login(
         access_token = create_access_token(data={"sub": user.id})
         return {
             "access_token": access_token,
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "steps": await get_steps(db, user),
         }
     except HTTPException as http_exc:
         # Log the HTTPException if needed
@@ -133,13 +136,75 @@ async def get_token(
         #     )
 
         access_token = create_access_token(data={"sub": user.id})
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "token_type": "bearer", "steps": await get_steps(db, user)}
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from login")
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from login")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
+        )
+
+
+# register
+@auth_router.post("/register", status_code=status.HTTP_200_OK)
+async def register(
+    register_data: RegisterSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
+    try:
+        name = register_data.name
+        email = register_data.email
+        password = register_data.password
+
+        valid_email_status, res = await validate_correct_email(email)
+
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Name is required"
+            )
+
+        names = name.split(" ")
+        if len(names) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Pls input your full name"
+            )
+
+        if not valid_email_status:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res)
+
+        pass_res = validate_password(password)
+
+        if pass_res:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=pass_res
+            )
+
+        user = await email_exists(db, res)
+
+        if user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot register with this email"
+            )
+
+        last_name = names[0]
+        first_name = names[1]
+
+        user = await save_user_data(db, last_name, first_name, res, password)
+
+        access_token = create_access_token(data={"sub": user.id})
+
+        return {"detail": "User registered successfully",
+                "access_token": access_token,
+                "token_type": "bearer"
+                }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback from register")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback from register")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
