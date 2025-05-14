@@ -8,6 +8,8 @@ from models import (
     UserProfile,
     Gender,
     MaritalStatus,
+    Industry,
+    Reasons
 )
 from helpers import hash_password
 from constants import SESSION_EXPIRES, OTP_EXPIRES
@@ -35,6 +37,19 @@ async def check_if_org_in_orgtable(db):
 # save user with just email and password
 async def save_user_email_password(db, email, password):
     user = Users(email=email, password=hash_password(password))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+async def save_user_data(db, last_name, first_name, email, password):
+    user = Users(
+        last_name=last_name,
+        first_name=first_name,
+        email=email,
+        password=hash_password(password),
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -110,6 +125,18 @@ async def create_or_update_user_session(db, user, otp=None, token=None):
     return user_session
 
 
+# get all industries
+async def get_all_industries(db):
+    # get the ones not deleted and order by name
+    return db.query(Industry).filter(Industry.deleted == False).order_by(Industry.name).all()
+
+
+# get all reasons
+async def get_all_reasons(db):
+    # get the ones not deleted and order by name
+    return db.query(Reasons).filter(Reasons.deleted == False).order_by(Reasons.name).all()
+
+
 # extract user_id from request for rate limit
 def get_user_id_from_request(request: Request):
     user_id = request.state.user_id
@@ -119,30 +146,35 @@ def get_user_id_from_request(request: Request):
     return user_id
 
 
-def save_user_data(db, data):
-    pass
+async def create_organization(name, domain, size, industry, role_id, role, reason_id, current_user, db):
+    if current_user.organization_id:
+        current_user.organization.name = name or current_user.organization.name
+        current_user.organization.domain = domain or current_user.organization.domain
+        current_user.organization.size = size or current_user.organization.size
+        current_user.organization.industry = industry or current_user.organization.industry
+        current_user.organization.reason_id = reason_id or current_user.organization.reason_id
+        current_user.role_id = role_id if role_id else create_role(db, role).id if role else current_user.role_id
+        db.commit()
+        return current_user.organization
 
-
-async def create_organization(
-    db, name, address, country, state, city, phone, email, website
-):
     organization = Organization(
         name=name,
-        address=address,
-        country=country,
-        state=state,
-        city=city,
-        phone=phone,
-        email=email,
-        website=website,
+        domain=domain,
+        size=size,
+        industry=industry,
+        reason_id=reason_id,
     )
     db.add(organization)
+    logger.info(f"organization: {organization}")
+    print(f"organizationID: {organization.id}")
+    current_user.role_id = role_id if role_id else create_role(db, role).id if role else current_user.role_id
+    current_user.organization = organization
     db.commit()
     db.refresh(organization)
     return organization
 
 
-async def create_role(db, name):
+def create_role(db, name):
     existing_role = db.query(Roles).filter(Roles.name.ilike(name)).first()
     if existing_role:
         return existing_role
@@ -287,7 +319,7 @@ async def save_default_roles(db):
         {"name": "Staff"},
     ]
     for role in roles:
-        await create_role(db, role["name"])
+        create_role(db, role["name"])
 
     return roles
 
@@ -298,3 +330,13 @@ async def save_default_roles(db):
 #     db.commit()
 #     db.refresh(sub_side_menu)
 #     return sub_side_menu
+
+
+async def get_steps(db, current_user):
+    steps = {"first_step": False if not current_user.organization_id else True}
+    org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
+    steps["first_step"] = False if not org or not all([org.name, org.domain, org.size]) else True
+    steps["second_step"] = False if not org or not org.industry else True
+    steps["third_step"] = False if not current_user.role_id else True
+    steps["fourth_step"] = False if not org or not org.reason_id else True
+    return steps
