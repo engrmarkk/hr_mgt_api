@@ -18,3 +18,14 @@ class OrgSchema(BaseModel):
 
 class ShowOrgSchema(BaseModel):
     organization: Optional[OrgSchema] = None
+
+
+# create organization
+class CreateOrgSchema(BaseModel):
+    name: Optional[str] = None
+    domain: Optional[str] = None
+    size: Optional[str] = None
+    industry_id: Optional[str] = None
+    role_id: Optional[str] = None
+    role: Optional[str] = None
+    reason_id: Optional[str] = None
