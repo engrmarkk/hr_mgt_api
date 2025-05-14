@@ -3,7 +3,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from fastapi import status
-from config import redis_conn
+from connections import redis_conn
 from constants import RATE_LIMIT, WINDOW_SECONDS
 
 
