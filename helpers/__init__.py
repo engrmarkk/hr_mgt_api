@@ -8,13 +8,9 @@ from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 
 
-def generate_otp():
-    return str(random.randint(100000, 999999))
-
-
 # generate token
 def generate_token():
-    return str(random.randint(10000000, 99999999))
+    return str(random.randint(1000, 9999))
 
 
 def generate_uuid():
@@ -99,3 +95,7 @@ def validate_phone_number(phone_number):
     if not phone_number.isdigit():
         return "Your phone number must be a number"
     return None
+
+
+def generate_salt():
+    return secrets.token_hex(16)
