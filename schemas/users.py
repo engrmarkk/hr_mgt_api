@@ -104,7 +104,11 @@ class ChangePasswordSchema(BaseModel):
 
 
 class ResetTokenSchema(BaseModel):
-    email: str
-    token: str
+    salt: str
     password: str
     confirm_password: str
+
+
+class ConfirmTokenSchema(BaseModel):
+    email: str
+    token: str
