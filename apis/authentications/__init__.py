@@ -5,6 +5,7 @@ from schemas import (
     VerifyEmailSchema,
     ResendOTPSchema,
     ResetTokenSchema,
+    ConfirmTokenSchema
 )
 from cruds import (
     email_exists,
@@ -13,15 +14,15 @@ from cruds import (
     save_user_data,
     save_default_side_menus,
     save_default_roles,
-    get_steps
+    get_steps,
+    get_user_via_salt
 )
 from helpers import (
     validate_password,
     validate_correct_email,
     verify_password,
-    generate_otp,
     generate_token,
-    hash_password,
+    hash_password, generate_salt
 )
 from database import get_db
 from sqlalchemy.orm import Session
@@ -295,15 +296,8 @@ async def resend_otp(
         #     raise HTTPException(
         #         status_code=status.HTTP_400_BAD_REQUEST, detail="Email already verified"
         #     )
-        otp = generate_otp()
-        if user.user_sessions:
-            user.user_sessions.token = otp
-            user.user_sessions.otp_expired_date = datetime.now() + timedelta(
-                minutes=OTP_EXPIRES
-            )
-        else:
-            user_sessions = UserSessions(token=otp, user_id=user.id)
-            db.add(user_sessions)
+        token = generate_token()
+        await create_or_update_user_session(db, user, token=token)
 
         db.commit()
         saved_otp = user.user_sessions.token
@@ -312,13 +306,12 @@ async def resend_otp(
             send_email,
             {
                 "email": email,
-                "subject": "Email Verification",
+                "subject": "Reset Password",
                 "template_name": "otp.html",
-                "name": user.first_name.title(),
-                "otp": saved_otp,
-            },
+                "token": saved_otp,
+            }
         )
-        return {"detail": "OTP sent successfully"}
+        return {"detail": "OTP sent successfully", "email": res}
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from resend otp")
@@ -336,11 +329,11 @@ async def resend_otp(
     status_code=status.HTTP_200_OK,
 )
 async def reset_password_req(
-    request_data: ResendOTPSchema, db: Session = Depends(get_db)
+    request_data: ResendOTPSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
 ):
     try:
         email = request_data.email
-        valid_email_status, res = validate_correct_email(email)
+        valid_email_status, res = await validate_correct_email(email)
 
         if not valid_email_status:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res)
@@ -351,15 +344,16 @@ async def reset_password_req(
             )
         token = generate_token()
         resp = await create_or_update_user_session(db, user, token=token)
-        # send_mail.delay(
-        #     {
-        #         "email": email,
-        #         "subject": "Reset Password",
-        #         "template_name": "token.html",
-        #         "name": user.username.title(),
-        #         "token": resp.token,
-        #     }
-        # )
+
+        background_tasks.add_task(
+            send_email,
+            {
+                "email": email,
+                "subject": "Reset Password",
+                "template_name": "otp.html",
+                "token": resp.token,
+            }
+        )
         return {"detail": "Token sent"}
     except HTTPException as http_exc:
         # Log the HTTPException if needed
@@ -373,15 +367,13 @@ async def reset_password_req(
 
 
 # reset password
-@auth_router.patch("/reset_password", status_code=status.HTTP_200_OK)
-async def reset_password(request_data: ResetTokenSchema, db: Session = Depends(get_db)):
+@auth_router.post("/confirm_token", status_code=status.HTTP_200_OK)
+async def confirm_token(request_data: ConfirmTokenSchema, db: Session = Depends(get_db)):
     try:
         email = request_data.email
         token = request_data.token
-        password = request_data.password
-        confirm_password = request_data.confirm_password
 
-        valid_email_status, res = validate_correct_email(email)
+        valid_email_status, res = await validate_correct_email(email)
 
         if not valid_email_status:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res)
@@ -395,21 +387,54 @@ async def reset_password(request_data: ResetTokenSchema, db: Session = Depends(g
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Pls input your token"
             )
-        if user.user_sessions.used_token:
+        if user.user_sessions.used:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Token"
             )
-        if user.user_sessions.token_expired_date < datetime.now():
+        if user.user_sessions.expired_at < datetime.now():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Token has expired"
             )
+        print(user.user_sessions.token, token)
         if user.user_sessions.token != token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Token"
             )
+
+        salt = generate_salt()
+
+        user.user_sessions.salt = salt
+        user.user_sessions.used = True
+        db.commit()
+        return {"detail": "Pls Reset your password", "salt": salt}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from reset password")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from reset password")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
+        )
+
+
+
+@auth_router.patch("/reset_password", status_code=status.HTTP_200_OK)
+async def reset_password(request_data: ResetTokenSchema, db: Session = Depends(get_db)):
+    try:
+        salt = request_data.salt
+        password = request_data.password
+        confirm_password = request_data.confirm_password
+
+        user = await get_user_via_salt(db, salt)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+
         resp = validate_password(password)
         if resp:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=resp)
         if password != confirm_password:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
