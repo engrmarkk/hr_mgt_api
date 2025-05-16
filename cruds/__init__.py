@@ -56,6 +56,13 @@ async def save_user_data(db, last_name, first_name, email, password):
     return user
 
 
+async def get_user_via_salt(db, salt: str):
+    user_sess = db.query(UserSessions).filter(UserSessions.salt == salt).first()
+    if user_sess:
+        return user_sess.user
+    return None
+
+
 # phone number exists
 async def phone_number_exists(db, phone_number):
     return db.query(Users).filter(Users.phone_number == phone_number).first()
@@ -93,34 +100,15 @@ async def save_user_profile(
 
 async def create_or_update_user_session(db, user, otp=None, token=None):
     user_session = db.query(UserSessions).filter_by(user_id=user.id).first()
-    if user_session:
-        if token:
-            user_session.token = token
-            user_session.used_token = False
-            user_session.token_expired_date = datetime.now() + timedelta(
-                minutes=SESSION_EXPIRES
-            )
-        if otp:
-            user_session.otp = otp
-            user_session.used_otp = False
-            user_session.otp_expired_date = datetime.now() + timedelta(
-                minutes=OTP_EXPIRES
-            )
-    else:
+
+    if not user_session:
         user_session = UserSessions(user_id=user.id)
-        if token:
-            user_session.token = token
-            user_session.used_token = False
-            user_session.token_expired_date = datetime.now() + timedelta(
-                minutes=SESSION_EXPIRES
-            )
-        if otp:
-            user_session.otp = otp
-            user_session.used_otp = False
-            user_session.otp_expired_date = datetime.now() + timedelta(
-                minutes=OTP_EXPIRES
-            )
         db.add(user_session)
+    user_session.token = token
+    user_session.used = False
+    user_session.expired_at = datetime.now() + timedelta(
+        minutes=SESSION_EXPIRES
+    )
     db.commit()
     return user_session
 
