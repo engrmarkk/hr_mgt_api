@@ -232,6 +232,7 @@ class UserSessions(Base):
     id = Column(String(50), primary_key=True, default=generate_uuid)
     user_id = Column(String(50), ForeignKey("users.id"))
     token = Column(String(10))
+    salt = Column(String(70))
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     expired_at = Column(
