@@ -8,6 +8,10 @@ from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
 
 
+def format_datetime(date_time):
+    return date_time.strftime("%d-%b-%Y")
+
+
 # generate token
 def generate_token():
     return str(random.randint(1000, 9999))
