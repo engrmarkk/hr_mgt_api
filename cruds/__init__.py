@@ -2,9 +2,9 @@ from models import (
     Users,
     UserSessions,
     Roles,
-    SubSideMenu,
+    # SubSideMenu,
     Organization,
-    SideMenu,
+    # SideMenu,
     UserProfile,
     Gender,
     MaritalStatus,
@@ -12,13 +12,13 @@ from models import (
     Reasons
 )
 from helpers import hash_password
-from constants import SESSION_EXPIRES, OTP_EXPIRES
+from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
 from datetime import datetime, timedelta
 
 # from celery_config.utils.cel_workers import send_mail
 from fastapi import Request, HTTPException
 from logger import logger
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 
 # if email exists (fastapi)
@@ -98,6 +98,62 @@ async def save_user_profile(
         raise None
 
 
+async def get_employees(db, page: int, per_page: int, org_id: str):
+    try:
+        # Calculate offset
+        offset = (page - 1) * per_page
+
+        # Query to get employees for the specified organization, ordered by created_at
+        emps = (
+            db.query(Users)
+            .filter(Users.organization_id == org_id)
+            .order_by(desc(Users.created_at))  # Order by created_at in descending order
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+
+        # Optionally, you can also return the total count of employees for the organization
+        total_count = db.query(Users).filter(Users.organization_id == org_id).count()
+
+        return {
+            "employees": [emp.to_dict() for emp in emps],  # Assuming you have a to_dict method
+            "total_items": total_count,
+            "total_pages": (total_count + per_page - 1) // per_page,
+            "page": page,
+            "per_page": per_page,
+        }
+    except Exception as e:
+        logger.exception(e)
+        return {}
+
+
+async def get_one_employee(db, user_id, organization_id):
+    user = db.query(Users).filter_by(id=user_id, organization_id=organization_id).first()
+    return user.to_dict() if user else None
+
+
+async def email_exists_in_org(db, email: str, org_id: str):
+    return db.query(Users).filter(Users.email == email, Users.organization_id == org_id).first()
+
+
+async def create_one_employee(
+            db, last_name, first_name, email, date_joined, organization_id
+        ):
+    user = Users(
+        last_name=last_name,
+        first_name=first_name,
+        email=email,
+        organization_id=organization_id,
+        date_joined=date_joined,
+        password=hash_password(DEFAULT_PASSWORD),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 async def create_or_update_user_session(db, user, otp=None, token=None):
     user_session = db.query(UserSessions).filter_by(user_id=user.id).first()
 
@@ -174,14 +230,14 @@ def create_role(db, name):
 
 
 # get side mennus
-async def get_side_menus(db):
-    menus = (
-        db.query(SideMenu)
-        .filter(SideMenu.deleted == False)
-        .order_by(SideMenu.tag)
-        .all()
-    )
-    return [menu.to_dict() for menu in menus]
+# async def get_side_menus(db):
+#     menus = (
+#         db.query(SideMenu)
+#         .filter(SideMenu.deleted == False)
+#         .order_by(SideMenu.tag)
+#         .all()
+#     )
+#     return [menu.to_dict() for menu in menus]
 
 
 # get roles
@@ -190,112 +246,112 @@ async def get_roles(db):
     return roles
 
 
-def save_default_side_menus(db):
-    # Sample JSON data
-    side_menus = [
-        {
-            "name": "Dashboard",
-            "icon_url": "https://example.com/icons/dashboard.png",
-            "tag": 1,
-            "description": "Access to the main dashboard.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Employees",
-            "tag": 2,
-            "icon_url": "https://example.com/icons/users.png",
-            "description": "Manage users and their roles.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Admins",
-            "tag": 10,
-            "icon_url": "https://example.com/icons/users.png",
-            "description": "Manage users and their roles.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Settings",
-            "tag": 7,
-            "icon_url": "https://example.com/icons/settings.png",
-            "description": "Configure application settings.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Reports",
-            "tag": 9,
-            "icon_url": "https://example.com/icons/reports.png",
-            "description": "View and generate reports.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Notifications",
-            "tag": 4,
-            "icon_url": "https://example.com/icons/notifications.png",
-            "description": "Manage notifications and alerts.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Analytics",
-            "tag": 3,
-            "icon_url": "https://example.com/icons/analytics.png",
-            "description": "View analytics and statistics.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Events",
-            "tag": 5,
-            "icon_url": "https://example.com/icons/events.png",
-            "description": "Access and manage events.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Projects",
-            "tag": 6,
-            "icon_url": "https://example.com/icons/projects.png",
-            "description": "Manage projects and tasks.",
-            "sub_side_menus": [],
-        },
-        {
-            "name": "Help",
-            "tag": 8,
-            "icon_url": "https://example.com/icons/help.png",
-            "description": "Access help and documentation.",
-            "sub_side_menus": [],
-        },
-    ]
-
-    # Save data to the database
-    for menu in side_menus:
-        # Check if a SideMenu with the same name already exists
-        existing_menu = (
-            db.query(SideMenu).filter(SideMenu.name.ilike(menu["name"])).first()
-        )
-
-        if not existing_menu:  # If no existing entry found, add it
-            side_menu = SideMenu(
-                name=menu["name"],
-                icon=menu["icon_url"],
-                tag=menu["tag"],
-                description=menu.get("description"),  # Use get to avoid KeyError
-            )
-            db.add(side_menu)
-
-            for sub_menu in menu.get("sub_side_menus", []):  # Use get to avoid KeyError
-                if (
-                    not db.query(SubSideMenu)
-                    .filter(SubSideMenu.name.ilike(sub_menu["name"]))
-                    .first()
-                ):
-                    sub_side_menu = SubSideMenu(
-                        name=sub_menu["name"], side_menu_id=side_menu.id
-                    )
-                    db.add(sub_side_menu)
-
-    # Commit the session after the loop to save all changes at once
-    db.commit()
-
-    return side_menus
+# def save_default_side_menus(db):
+#     # Sample JSON data
+#     side_menus = [
+#         {
+#             "name": "Dashboard",
+#             "icon_url": "https://example.com/icons/dashboard.png",
+#             "tag": 1,
+#             "description": "Access to the main dashboard.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Employees",
+#             "tag": 2,
+#             "icon_url": "https://example.com/icons/users.png",
+#             "description": "Manage users and their roles.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Admins",
+#             "tag": 10,
+#             "icon_url": "https://example.com/icons/users.png",
+#             "description": "Manage users and their roles.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Settings",
+#             "tag": 7,
+#             "icon_url": "https://example.com/icons/settings.png",
+#             "description": "Configure application settings.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Reports",
+#             "tag": 9,
+#             "icon_url": "https://example.com/icons/reports.png",
+#             "description": "View and generate reports.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Notifications",
+#             "tag": 4,
+#             "icon_url": "https://example.com/icons/notifications.png",
+#             "description": "Manage notifications and alerts.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Analytics",
+#             "tag": 3,
+#             "icon_url": "https://example.com/icons/analytics.png",
+#             "description": "View analytics and statistics.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Events",
+#             "tag": 5,
+#             "icon_url": "https://example.com/icons/events.png",
+#             "description": "Access and manage events.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Projects",
+#             "tag": 6,
+#             "icon_url": "https://example.com/icons/projects.png",
+#             "description": "Manage projects and tasks.",
+#             "sub_side_menus": [],
+#         },
+#         {
+#             "name": "Help",
+#             "tag": 8,
+#             "icon_url": "https://example.com/icons/help.png",
+#             "description": "Access help and documentation.",
+#             "sub_side_menus": [],
+#         },
+#     ]
+#
+#     # Save data to the database
+#     for menu in side_menus:
+#         # Check if a SideMenu with the same name already exists
+#         existing_menu = (
+#             db.query(SideMenu).filter(SideMenu.name.ilike(menu["name"])).first()
+#         )
+#
+#         if not existing_menu:  # If no existing entry found, add it
+#             side_menu = SideMenu(
+#                 name=menu["name"],
+#                 icon=menu["icon_url"],
+#                 tag=menu["tag"],
+#                 description=menu.get("description"),  # Use get to avoid KeyError
+#             )
+#             db.add(side_menu)
+#
+#             for sub_menu in menu.get("sub_side_menus", []):  # Use get to avoid KeyError
+#                 if (
+#                     not db.query(SubSideMenu)
+#                     .filter(SubSideMenu.name.ilike(sub_menu["name"]))
+#                     .first()
+#                 ):
+#                     sub_side_menu = SubSideMenu(
+#                         name=sub_menu["name"], side_menu_id=side_menu.id
+#                     )
+#                     db.add(sub_side_menu)
+#
+#     # Commit the session after the loop to save all changes at once
+#     db.commit()
+#
+#     return side_menus
 
 
 # save default role
