@@ -112,3 +112,10 @@ class ResetTokenSchema(BaseModel):
 class ConfirmTokenSchema(BaseModel):
     email: str
     token: str
+
+
+class CreateEmployeeSchema(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    date_joined: str
