@@ -11,7 +11,7 @@ from sqlalchemy import (
     Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.orm import relationship
-from helpers import generate_uuid
+from helpers import generate_uuid, format_datetime
 from datetime import datetime, timedelta
 from constants import OTP_EXPIRES
 from enum import Enum
@@ -77,12 +77,12 @@ class Roles(Base):
     name = Column(String(50), unique=True, nullable=False)
 
     users = relationship("Users", backref="role")
-    side_menus = relationship(
-        "RoleSideMenu", back_populates="role", cascade="all, delete-orphan"
-    )
-    sub_side_menus = relationship(
-        "RoleSubSideMenu", back_populates="role", cascade="all, delete-orphan"
-    )
+    # side_menus = relationship(
+    #     "RoleSideMenu", back_populates="role", cascade="all, delete-orphan"
+    # )
+    # sub_side_menus = relationship(
+    #     "RoleSubSideMenu", back_populates="role", cascade="all, delete-orphan"
+    # )
 
     def __repr__(self):
         return f"<Role(id={self.id}, name={self.name})>"
@@ -141,8 +141,22 @@ class Users(Base):
             "role_id": self.role_id,
             "role": self.role.name if self.role else None,
             "email_verified": self.email_verified,
-            "created_at": self.created_at,
-            "user_profile": self.user_profile.to_dict() if self.user_profile else None,
+            "department": self.department.name if self.department else None,
+            "created_at": format_datetime(self.created_at),
+            "last_login": format_datetime(self.last_login),
+            "date_joined": format_datetime(self.date_joined) if self.date_joined else None,
+            "user_profile": self.user_profile.to_dict() if self.user_profile else {},
+            "employment_details": self.employment_details.to_dict()
+            if self.employment_details
+            else {},
+            "health_insurance": self.health_insurance.to_dict()
+            if self.health_insurance
+            else {},
+            "bank_details": self.bank_details.to_dict() if self.bank_details else {},
+            "emergency_contact": self.emergency_contact.to_dict()
+            if self.emergency_contact
+            else {},
+            "uploaded_files": self.uploaded_files.to_dict() if self.uploaded_files else {},
         }
 
 
