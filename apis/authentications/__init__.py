@@ -12,7 +12,7 @@ from cruds import (
     create_or_update_user_session,
     save_user_email_password,
     save_user_data,
-    save_default_side_menus,
+    # save_default_side_menus,
     save_default_roles,
     get_steps,
     get_user_via_salt
@@ -80,6 +80,8 @@ async def login(
             )
 
         access_token = create_access_token(data={"sub": user.id})
+        user.last_login = datetime.now()
+        db.commit()
         return {
             "access_token": access_token,
             "token_type": "bearer",
