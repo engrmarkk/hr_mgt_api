@@ -421,7 +421,7 @@ async def confirm_token(request_data: ConfirmTokenSchema, db: Session = Depends(
 
 
 
-@auth_router.patch("/reset_password", status_code=status.HTTP_200_OK)
+@auth_router.post("/reset_password", status_code=status.HTTP_200_OK)
 async def reset_password(request_data: ResetTokenSchema, db: Session = Depends(get_db)):
     try:
         salt = request_data.salt
