@@ -433,14 +433,29 @@ async def construct_employee_details(user):
     }
 
 
-def create_remain(db, user_id):
-    objects = [
-        EmploymentDetails(user_id=user_id),
-        EmergencyContact(user_id=user_id),
-        HealthInsurance(user_id=user_id),
-        BankDetails(user_id=user_id)
-    ]
-    db.session.bulk_save_objects(objects)
-    db.session.commit()
-    logger.info("Remain created")
-    return objects 
+def create_remain(user_id: str):
+    from database import get_db
+    # Get an actual session from the generator
+    db_gen = get_db()  # This returns a generator
+    db = next(db_gen)  # Get the session object from generator
+    
+    try:
+        logger.info("Remain created start, user_id: %s", user_id)
+        
+        em = EmploymentDetails(user_id=user_id)
+        emg = EmergencyContact(user_id=user_id)
+        hih = HealthInsurance(user_id=user_id)
+        bd = BankDetails(user_id=user_id)
+        
+        db.add_all([em, emg, hih, bd])
+        db.commit()
+        
+        logger.info("Remain created successfully for user %s", user_id)
+    except Exception as e:
+        db.rollback()
+        logger.error("Background task failed: %s", str(e), exc_info=True)
+    finally:
+        try:
+            next(db_gen)  # Closes the generator (executes the finally block in get_db())
+        except StopIteration:
+            pass  # Generator is already exhausted
