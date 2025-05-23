@@ -9,7 +9,7 @@ from models import (
     Gender,
     MaritalStatus,
     Industry,
-    Reasons
+    Reasons, FileType
 )
 from helpers import hash_password
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -130,7 +130,7 @@ async def get_employees(db, page: int, per_page: int, org_id: str):
 
 async def get_one_employee(db, user_id, organization_id):
     user = db.query(Users).filter_by(id=user_id, organization_id=organization_id).first()
-    return user.to_dict() if user else None
+    return user
 
 
 async def email_exists_in_org(db, email: str, org_id: str):
@@ -384,3 +384,46 @@ async def get_steps(db, current_user):
     steps["third_step"] = False if not current_user.role_id else True
     steps["fourth_step"] = False if not org or not org.reason_id else True
     return steps
+
+
+async def construct_employee_details(user):
+    general = {
+        "fullname": f"{user.first_name} {user.last_name}",
+        "gender": user.user_profile.gender if user.user_profile else "",
+        "email": user.email,
+        "nationality": user.user_profile.country if user.user_profile else "",
+        "phone_number": user.phone_number,
+        "health_care": user.health_insurance.health_insurance if user.health_insurance else "",
+        "marital_status": user.user_profile.marital_status if user.user_profile else "",
+        "personal_tax_id": user.user_profile.tax_id if user.user_profile else "",
+        "date_of_birth": user.user_profile.date_of_birth if user.user_profile else "",
+        "social_insurance": user.health_insurance.health_insurance_number if user.health_insurance else "",
+    }
+
+    job = {
+        "employee_id": user.employment_details.employment_id if user.employment_details else "",
+        "service_year": "",
+        "join_date": user.employment_details.join_date if user.employment_details else "",
+    }
+
+    payroll = {
+        "employment_status": user.employment_details.employment_status
+        if user.employment_details else "",
+        "job_title": user.employment_details.job_title if user.employment_details else "",
+        "employment_type": user.employment_details.employment_type
+        if user.employment_details else "",
+        "work_mode": user.employment_details.work_mode if user.employment_details else "",
+        "compensation": [comp.to_dict() for comp in user.compensation] if user.compensation else [],
+    }
+
+    document = {
+        "personal": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PERSONAL] if user.uploaded_files else [],
+        "payslip": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PAYSLIP] if user.uploaded_files else [],
+    }
+
+    return {
+        "general": general,
+        "job": job,
+        "payroll": payroll,
+        "document": document
+    }
