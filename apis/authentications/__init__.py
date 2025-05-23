@@ -200,7 +200,7 @@ async def register(
         access_token = create_access_token(data={"sub": user.id})
 
         background_tasks.add_task(
-            create_remain, db, user.id
+            create_remain, user.id
         )
 
         return {"detail": "User registered successfully",
