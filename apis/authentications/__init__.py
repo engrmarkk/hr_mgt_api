@@ -15,7 +15,8 @@ from cruds import (
     # save_default_side_menus,
     save_default_roles,
     get_steps,
-    get_user_via_salt
+    get_user_via_salt, 
+    create_remain
 )
 from helpers import (
     validate_password,
@@ -197,6 +198,10 @@ async def register(
         user = await save_user_data(db, last_name, first_name, res, password)
 
         access_token = create_access_token(data={"sub": user.id})
+
+        background_tasks.add_task(
+            create_remain, db, user.id
+        )
 
         return {"detail": "User registered successfully",
                 "access_token": access_token,
