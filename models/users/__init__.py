@@ -172,7 +172,7 @@ class Users(Base):
             "line_manager": "John Doe",
             "department": self.department.name if self.department else "",
             "office": self.organization.name if self.organization else "",
-            "employment_status": self.employment_details.employment_status if self.employment_details else EmploymentStatus.ACTIVE,
+            "employment_status": self.employment_details.employment_status if self.employment_details else EmploymentStatus.ACTIVE.value,
             "account": "activated" if self.active else "deactivated"
         }
 
