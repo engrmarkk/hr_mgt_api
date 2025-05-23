@@ -5,7 +5,11 @@ from models import (
     # SubSideMenu,
     Organization,
     # SideMenu,
+    BankDetails,
+    HealthInsurance,
     UserProfile,
+    EmergencyContact,
+    EmploymentDetails,
     Gender,
     MaritalStatus,
     Industry,
@@ -427,3 +431,16 @@ async def construct_employee_details(user):
         "payroll": payroll,
         "document": document
     }
+
+
+def create_remain(db, user_id):
+    objects = [
+        EmploymentDetails(user_id=user_id),
+        EmergencyContact(user_id=user_id),
+        HealthInsurance(user_id=user_id),
+        BankDetails(user_id=user_id)
+    ]
+    db.session.bulk_save_objects(objects)
+    db.session.commit()
+    logger.info("Remain created")
+    return objects 
