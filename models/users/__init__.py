@@ -163,6 +163,18 @@ class Users(Base):
             else {},
             "uploaded_files": self.uploaded_files.to_dict() if self.uploaded_files else {},
         }
+    
+    def to_dict_2(self):
+        return {
+            "id": self.id,
+            "name": f"{self.last_name} {self.first_name}",
+            "job_title": self.employment_details.job_title if self.employment_details else "",
+            "line_manager": "John Doe",
+            "department": self.department.name if self.department else "",
+            "office": self.organization.name if self.organization else "",
+            "employment_status": self.employment_details.employment_status if self.employment_details else EmploymentStatus.ACTIVE,
+            "account": "activated" if self.active else "deactivated"
+        }
 
 
 class UserProfile(Base):
