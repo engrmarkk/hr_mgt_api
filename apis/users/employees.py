@@ -140,7 +140,7 @@ async def create_employee(
             db, last_name, first_name, res[1], date_joined, current_user.organization_id
         )
         background_tasks.add_task(
-            create_remain, db, user.id
+            create_remain, user.id
         )
         return {"detail": "Successful", "user_id": user.id}
     except HTTPException as http_exc:
