@@ -3,7 +3,7 @@ from security import get_current_user
 from sqlalchemy.orm import Session
 from models import Users
 from cruds import (
-    get_employees, create_one_employee, email_exists_in_org, get_one_employee
+    get_employees, create_one_employee, email_exists_in_org, get_one_employee, construct_employee_details
 )
 from helpers import (
     validate_phone_number,
@@ -12,13 +12,7 @@ from helpers import (
     verify_password,
 validate_correct_email
 )
-from schemas import (
-    ShowUserSchema,
-    CompleteRegSchema,
-    ChangePasswordSchema,
-    MiscRoleSchema,
-    CreateOrgSchema, CreateEmployeeSchema
-)
+from schemas import CreateEmployeeSchema
 from typing import List
 from database import get_db
 from utils import limiter
@@ -71,13 +65,19 @@ async def get_employee(
     db: Session = Depends(get_db),
 ):
     try:
+        employee_dict = redis_conn.get(f"employee:{employee_id}")
+        if employee_dict:
+            logger.info("Getting from redis")
+            return json.loads(employee_dict)
         employee = await get_one_employee(db, employee_id, current_user.organization_id)
         if not employee:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Employee not found",
             )
-        return {"employee": employee}
+        employee_dict = await construct_employee_details(employee)
+        redis_conn.set(f"employee:{employee_id}", json.dumps(employee_dict))
+        return employee_dict
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from get one employee")
