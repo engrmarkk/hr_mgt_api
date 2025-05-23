@@ -1,9 +1,9 @@
-from fastapi import APIRouter, status, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, status, Depends, HTTPException, Request, Query, BackgroundTasks
 from security import get_current_user
 from sqlalchemy.orm import Session
 from models import Users
 from cruds import (
-    get_employees, create_one_employee, email_exists_in_org, get_one_employee, construct_employee_details
+    get_employees, create_one_employee, email_exists_in_org, get_one_employee, construct_employee_details, create_remain
 )
 from helpers import (
     validate_phone_number,
@@ -104,6 +104,7 @@ async def get_employee(
 )
 async def create_employee(
     request_data: CreateEmployeeSchema,
+    background_tasks: BackgroundTasks,
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -137,6 +138,9 @@ async def create_employee(
 
         user = await create_one_employee(
             db, last_name, first_name, res[1], date_joined, current_user.organization_id
+        )
+        background_tasks.add_task(
+            create_remain, db, user.id
         )
         return {"detail": "Successful", "user_id": user.id}
     except HTTPException as http_exc:
