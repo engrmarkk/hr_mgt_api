@@ -39,7 +39,13 @@ async def get_all_employees(
     per_page: int = Query(10, gt=0),
 ):
     try:
-        employees = await get_employees(db, page, per_page, current_user.organization_id)
+        employees = redis_conn.get(f"employees:{current_user.organization_id}")
+        if employees:
+            logger.info("Getting from redis")
+            return json.loads(employees)
+        else:
+            employees = await get_employees(db, page, per_page, current_user.organization_id)
+            redis_conn.set(f"employees:{current_user.organization_id}", json.dumps(employees))
         return employees
     except HTTPException as http_exc:
         # Log the HTTPException if needed
