@@ -69,6 +69,10 @@ class WorkMode(Enum):
     REMOTE = "remote"
     HYBRID = "hybrid"
 
+class FileType(Enum):
+    PAYSLIP = "payslip"
+    PERSONAL = "personal"
+
 
 class Roles(Base):
     __tablename__ = "roles"
@@ -130,6 +134,7 @@ class Users(Base):
     )
     health_insurance = relationship("HealthInsurance", backref="user", uselist=False)
     bank_details = relationship("BankDetails", backref="user", uselist=False)
+    compensation = relationship("Compensation", backref="user", uselist=False)
 
     def to_dict(self):
         return {
@@ -168,6 +173,7 @@ class UserProfile(Base):
     address = Column(Text, nullable=True)
     country = Column(String(50), nullable=True)
     state = Column(String(50), nullable=True)
+    tax_id = Column(String(50), nullable=True)
     city = Column(String(50), nullable=True)
     date_of_birth = Column(DateTime, nullable=True)
     marital_status = Column(
@@ -191,6 +197,7 @@ class EmploymentDetails(Base):
     user_id = Column(String(50), ForeignKey("users.id"), unique=True)
     employment_id = Column(String(50), nullable=True)
     job_title = Column(String(70), nullable=True)
+    join_date = Column(DateTime, nullable=True)
     employment_status = Column(
         SQLAlchemyEnum(EmploymentStatus),
         default=EmploymentStatus.ACTIVE,
@@ -202,7 +209,20 @@ class EmploymentDetails(Base):
     work_mode = Column(
         SQLAlchemyEnum(WorkMode), default=WorkMode.ONSITE, nullable=False
     )
-    salary = Column(Float, nullable=True)
+
+
+class Compensation(Base):
+    __tablename__ = "compensation"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
+    compensation_type = Column(String(50), nullable=True)
+    amount = Column(Float, nullable=True)
+
+    def to_dict(self):
+        return {
+            "compensation_type": self.compensation_type,
+            "amount": self.amount,
+        }
 
 
 class HealthInsurance(Base):
@@ -211,26 +231,6 @@ class HealthInsurance(Base):
     user_id = Column(String(50), ForeignKey("users.id"), unique=True)
     health_insurance = Column(String(50), nullable=True)
     health_insurance_number = Column(String(50), nullable=True)
-
-
-class UserEmployment(Base):
-    __tablename__ = "user_employment"
-    id = Column(String(50), primary_key=True, default=generate_uuid)
-    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
-    employment_id = Column(String(50), nullable=True)
-    job_title = Column(String(70), nullable=True)
-    employment_status = Column(
-        SQLAlchemyEnum(EmploymentStatus),
-        default=EmploymentStatus.ACTIVE,
-        nullable=False,
-    )
-    employment_type = Column(
-        SQLAlchemyEnum(EmploymentType), default=EmploymentType.FULL_TIME, nullable=False
-    )
-    work_mode = Column(
-        SQLAlchemyEnum(WorkMode), default=WorkMode.ONSITE, nullable=False
-    )
-    salary = Column(Float, nullable=True)
 
 
 class BankDetails(Base):
@@ -277,5 +277,15 @@ class UploadedFiles(Base):
     id = Column(String(50), primary_key=True, default=generate_uuid)
     file_name = Column(String(100))
     file_url = Column(String(100))
+    file_type = Column(SQLAlchemyEnum(FileType), default=FileType.PERSONAL, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     user_id = Column(String(50), ForeignKey("users.id"))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "file_name": self.file_name,
+            "file_url": self.file_url,
+            "file_type": self.file_type,
+            "created_at": self.created_at,
+        }
