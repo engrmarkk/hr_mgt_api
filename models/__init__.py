@@ -3,7 +3,6 @@ from models.users import (
     Roles,
     UserSessions,
     UserProfile,
-    UserEmployment,
     UploadedFiles,
     EmploymentDetails,
     EmergencyContact,
@@ -11,7 +10,7 @@ from models.users import (
     BankDetails,
     Gender,
     EmploymentStatus,
-    MaritalStatus,
+    MaritalStatus, FileType
 )
 from models.organization import (
     Organization,
