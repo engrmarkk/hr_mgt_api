@@ -117,7 +117,7 @@ async def get_employees(db, page: int, per_page: int, org_id: str):
         total_count = db.query(Users).filter(Users.organization_id == org_id).count()
 
         return {
-            "employees": [emp.to_dict() for emp in emps],  # Assuming you have a to_dict method
+            "employees": [emp.to_dict_2() for emp in emps],  # Assuming you have a to_dict method
             "total_items": total_count,
             "total_pages": (total_count + per_page - 1) // per_page,
             "page": page,
