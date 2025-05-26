@@ -167,9 +167,10 @@ class Users(Base):
     def to_dict_2(self):
         return {
             "id": self.id,
-            "name": f"{self.last_name} {self.first_name}",
+            "name": f"{self.last_name} {self.first_name}".title(),
             "job_title": self.employment_details.job_title if self.employment_details else "",
             "line_manager": "John Doe",
+            "email": self.email,
             "department": self.department.name if self.department else "",
             "office": self.organization.name if self.organization else "",
             "employment_status": self.employment_details.employment_status.value if self.employment_details else EmploymentStatus.ACTIVE.value,
