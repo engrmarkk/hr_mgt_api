@@ -34,6 +34,7 @@ from logger import logger
 from connections import redis_conn
 import json
 from apis.users import user_router
+from decorators import cache_it
 
 
 use_tag = ["Users"]
@@ -45,6 +46,7 @@ use_tag = ["Users"]
     tags=[use_tag],
     # response_model=List[MiscRoleSchema],
 )
+@cache_it("default_roles")
 async def get_all_roles(
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
