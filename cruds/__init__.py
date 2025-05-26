@@ -411,18 +411,18 @@ async def construct_employee_details(user):
     }
 
     payroll = {
-        "employment_status": user.employment_details.employment_status
+        "employment_status": user.employment_details.employment_status.value
         if user.employment_details else "",
         "job_title": user.employment_details.job_title if user.employment_details else "",
-        "employment_type": user.employment_details.employment_type
+        "employment_type": user.employment_details.employment_type.value
         if user.employment_details else "",
-        "work_mode": user.employment_details.work_mode if user.employment_details else "",
+        "work_mode": user.employment_details.work_mode.value if user.employment_details else "",
         "compensation": [comp.to_dict() for comp in user.compensation] if user.compensation else [],
     }
 
     document = {
-        "personal": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PERSONAL] if user.uploaded_files else [],
-        "payslip": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PAYSLIP] if user.uploaded_files else [],
+        "personal": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PERSONAL.value] if user.uploaded_files else [],
+        "payslip": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PAYSLIP.value] if user.uploaded_files else [],
     }
 
     return {
