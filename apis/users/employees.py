@@ -21,6 +21,7 @@ from connections import redis_conn
 import json
 from apis.users import user_router
 from datetime import datetime
+from decorators import cache_it
 
 
 emp_tag = "Employees"
@@ -32,6 +33,7 @@ emp_tag = "Employees"
     tags=[emp_tag],
     # response_model=List[MiscRoleSchema],
 )
+@cache_it("employees", org=True)
 async def get_all_employees(
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -39,13 +41,7 @@ async def get_all_employees(
     per_page: int = Query(10, gt=0),
 ):
     try:
-        employees = redis_conn.get(f"employees:{current_user.organization_id}")
-        if employees:
-            logger.info("Getting from redis")
-            return json.loads(employees)
-        else:
-            employees = await get_employees(db, page, per_page, current_user.organization_id)
-            redis_conn.set(f"employees:{current_user.organization_id}", json.dumps(employees))
+        employees = await get_employees(db, page, per_page, current_user.organization_id)
         return employees
     except HTTPException as http_exc:
         # Log the HTTPException if needed
@@ -65,16 +61,13 @@ async def get_all_employees(
     status_code=status.HTTP_200_OK,
     tags=[emp_tag],
 )
+@cache_it("employee", user=True)
 async def get_employee(
     employee_id: str,
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     try:
-        employee_dict = redis_conn.get(f"employee:{employee_id}")
-        if employee_dict:
-            logger.info("Getting from redis")
-            return json.loads(employee_dict)
         employee = await get_one_employee(db, employee_id, current_user.organization_id)
         if not employee:
             raise HTTPException(
@@ -82,7 +75,6 @@ async def get_employee(
                 detail="Employee not found",
             )
         employee_dict = await construct_employee_details(employee)
-        redis_conn.set(f"employee:{employee_id}", json.dumps(employee_dict))
         return employee_dict
     except HTTPException as http_exc:
         # Log the HTTPException if needed
