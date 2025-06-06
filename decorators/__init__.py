@@ -17,7 +17,7 @@ def email_verified():
             current_user: Users = Depends(get_current_user),
             db: Session = Depends(get_db),
             *args,
-            **kwargs
+            **kwargs,
         ):
             if not current_user.verify_email:
                 raise HTTPException(
@@ -35,13 +35,13 @@ def email_verified():
 def cache_it(red_key: str, org: bool = False, user: bool = False):
     def decorator(func):
         @wraps(func)
-        async def wrapper(
-            *args,
-            **kwargs
-        ):
-            current_user = kwargs.get('current_user')
-            redkey = f"{red_key}:{current_user.id}" if user else (
-                f"{red_key}:{current_user.organization_id}" if org else red_key)
+        async def wrapper(*args, **kwargs):
+            current_user = kwargs.get("current_user")
+            redkey = (
+                f"{red_key}:{current_user.id}"
+                if user
+                else (f"{red_key}:{current_user.organization_id}" if org else red_key)
+            )
             result = redis_conn.get(redkey)
             if result:
                 logger.info("get result from decorator redis")
@@ -49,5 +49,7 @@ def cache_it(red_key: str, org: bool = False, user: bool = False):
             result = await func(*args, **kwargs)
             redis_conn.set(redkey, json.dumps(result))
             return result
+
         return wrapper
+
     return decorator
