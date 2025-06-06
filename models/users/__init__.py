@@ -69,6 +69,7 @@ class WorkMode(Enum):
     REMOTE = "remote"
     HYBRID = "hybrid"
 
+
 class FileType(Enum):
     PAYSLIP = "payslip"
     PERSONAL = "personal"
@@ -149,32 +150,42 @@ class Users(Base):
             "department": self.department.name if self.department else None,
             "created_at": format_datetime(self.created_at),
             "last_login": format_datetime(self.last_login),
-            "date_joined": format_datetime(self.date_joined) if self.date_joined else None,
+            "date_joined": (
+                format_datetime(self.date_joined) if self.date_joined else None
+            ),
             "user_profile": self.user_profile.to_dict() if self.user_profile else {},
-            "employment_details": self.employment_details.to_dict()
-            if self.employment_details
-            else {},
-            "health_insurance": self.health_insurance.to_dict()
-            if self.health_insurance
-            else {},
+            "employment_details": (
+                self.employment_details.to_dict() if self.employment_details else {}
+            ),
+            "health_insurance": (
+                self.health_insurance.to_dict() if self.health_insurance else {}
+            ),
             "bank_details": self.bank_details.to_dict() if self.bank_details else {},
-            "emergency_contact": self.emergency_contact.to_dict()
-            if self.emergency_contact
-            else {},
-            "uploaded_files": self.uploaded_files.to_dict() if self.uploaded_files else {},
+            "emergency_contact": (
+                self.emergency_contact.to_dict() if self.emergency_contact else {}
+            ),
+            "uploaded_files": (
+                self.uploaded_files.to_dict() if self.uploaded_files else {}
+            ),
         }
-    
+
     def to_dict_2(self):
         return {
             "id": self.id,
             "name": f"{self.last_name} {self.first_name}".title(),
-            "job_title": self.employment_details.job_title if self.employment_details else "",
+            "job_title": (
+                self.employment_details.job_title if self.employment_details else ""
+            ),
             "line_manager": "John Doe",
             "email": self.email,
             "department": self.department.name if self.department else "",
             "office": self.organization.name if self.organization else "",
-            "employment_status": self.employment_details.employment_status.value if self.employment_details else EmploymentStatus.ACTIVE.value,
-            "account": "activated" if self.active else "deactivated"
+            "employment_status": (
+                self.employment_details.employment_status.value
+                if self.employment_details
+                else EmploymentStatus.ACTIVE.value
+            ),
+            "account": "activated" if self.active else "deactivated",
         }
 
 
@@ -290,7 +301,9 @@ class UploadedFiles(Base):
     id = Column(String(50), primary_key=True, default=generate_uuid)
     file_name = Column(String(100))
     file_url = Column(String(100))
-    file_type = Column(SQLAlchemyEnum(FileType), default=FileType.PERSONAL, nullable=True)
+    file_type = Column(
+        SQLAlchemyEnum(FileType), default=FileType.PERSONAL, nullable=True
+    )
     created_at = Column(DateTime, default=datetime.now)
     user_id = Column(String(50), ForeignKey("users.id"))
 
