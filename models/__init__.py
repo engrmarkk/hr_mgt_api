@@ -10,7 +10,8 @@ from models.users import (
     BankDetails,
     Gender,
     EmploymentStatus,
-    MaritalStatus, FileType
+    MaritalStatus,
+    FileType,
 )
 from models.organization import (
     Organization,
@@ -19,5 +20,5 @@ from models.organization import (
     # RoleSideMenu,
     # RoleSubSideMenu,
     Industry,
-    Reasons
+    Reasons,
 )
