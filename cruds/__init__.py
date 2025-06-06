@@ -13,7 +13,8 @@ from models import (
     Gender,
     MaritalStatus,
     Industry,
-    Reasons, FileType
+    Reasons,
+    FileType,
 )
 from helpers import hash_password
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -121,7 +122,9 @@ async def get_employees(db, page: int, per_page: int, org_id: str):
         total_count = db.query(Users).filter(Users.organization_id == org_id).count()
 
         return {
-            "employees": [emp.to_dict_2() for emp in emps],  # Assuming you have a to_dict method
+            "employees": [
+                emp.to_dict_2() for emp in emps
+            ],  # Assuming you have a to_dict method
             "total_items": total_count,
             "total_pages": (total_count + per_page - 1) // per_page,
             "page": page,
@@ -133,17 +136,23 @@ async def get_employees(db, page: int, per_page: int, org_id: str):
 
 
 async def get_one_employee(db, user_id, organization_id):
-    user = db.query(Users).filter_by(id=user_id, organization_id=organization_id).first()
+    user = (
+        db.query(Users).filter_by(id=user_id, organization_id=organization_id).first()
+    )
     return user
 
 
 async def email_exists_in_org(db, email: str, org_id: str):
-    return db.query(Users).filter(Users.email == email, Users.organization_id == org_id).first()
+    return (
+        db.query(Users)
+        .filter(Users.email == email, Users.organization_id == org_id)
+        .first()
+    )
 
 
 async def create_one_employee(
-            db, last_name, first_name, email, date_joined, organization_id
-        ):
+    db, last_name, first_name, email, date_joined, organization_id
+):
     user = Users(
         last_name=last_name,
         first_name=first_name,
@@ -166,9 +175,7 @@ async def create_or_update_user_session(db, user, otp=None, token=None):
         db.add(user_session)
     user_session.token = token
     user_session.used = False
-    user_session.expired_at = datetime.now() + timedelta(
-        minutes=SESSION_EXPIRES
-    )
+    user_session.expired_at = datetime.now() + timedelta(minutes=SESSION_EXPIRES)
     db.commit()
     return user_session
 
@@ -176,13 +183,20 @@ async def create_or_update_user_session(db, user, otp=None, token=None):
 # get all industries
 async def get_all_industries(db):
     # get the ones not deleted and order by name
-    return db.query(Industry).filter(Industry.deleted == False).order_by(Industry.name).all()
+    return (
+        db.query(Industry)
+        .filter(Industry.deleted == False)
+        .order_by(Industry.name)
+        .all()
+    )
 
 
 # get all reasons
 async def get_all_reasons(db):
     # get the ones not deleted and order by name
-    return db.query(Reasons).filter(Reasons.deleted == False).order_by(Reasons.name).all()
+    return (
+        db.query(Reasons).filter(Reasons.deleted == False).order_by(Reasons.name).all()
+    )
 
 
 # extract user_id from request for rate limit
@@ -194,14 +208,24 @@ def get_user_id_from_request(request: Request):
     return user_id
 
 
-async def create_organization(name, domain, size, industry, role_id, role, reason_id, current_user, db):
+async def create_organization(
+    name, domain, size, industry, role_id, role, reason_id, current_user, db
+):
     if current_user.organization_id:
         current_user.organization.name = name or current_user.organization.name
         current_user.organization.domain = domain or current_user.organization.domain
         current_user.organization.size = size or current_user.organization.size
-        current_user.organization.industry = industry or current_user.organization.industry
-        current_user.organization.reason_id = reason_id or current_user.organization.reason_id
-        current_user.role_id = role_id if role_id else create_role(db, role).id if role else current_user.role_id
+        current_user.organization.industry = (
+            industry or current_user.organization.industry
+        )
+        current_user.organization.reason_id = (
+            reason_id or current_user.organization.reason_id
+        )
+        current_user.role_id = (
+            role_id
+            if role_id
+            else create_role(db, role).id if role else current_user.role_id
+        )
         db.commit()
         return current_user.organization
 
@@ -215,7 +239,11 @@ async def create_organization(name, domain, size, industry, role_id, role, reaso
     db.add(organization)
     logger.info(f"organization: {organization}")
     print(f"organizationID: {organization.id}")
-    current_user.role_id = role_id if role_id else create_role(db, role).id if role else current_user.role_id
+    current_user.role_id = (
+        role_id
+        if role_id
+        else create_role(db, role).id if role else current_user.role_id
+    )
     current_user.organization = organization
     db.commit()
     db.refresh(organization)
@@ -382,8 +410,14 @@ async def save_default_roles(db):
 
 async def get_steps(db, current_user):
     steps = {"first_step": False if not current_user.organization_id else True}
-    org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
-    steps["first_step"] = False if not org or not all([org.name, org.domain, org.size]) else True
+    org = (
+        db.query(Organization)
+        .filter(Organization.id == current_user.organization_id)
+        .first()
+    )
+    steps["first_step"] = (
+        False if not org or not all([org.name, org.domain, org.size]) else True
+    )
     steps["second_step"] = False if not org or not org.industry else True
     steps["third_step"] = False if not current_user.role_id else True
     steps["fourth_step"] = False if not org or not org.reason_id else True
@@ -397,65 +431,101 @@ async def construct_employee_details(user):
         "email": user.email,
         "nationality": user.user_profile.country if user.user_profile else "",
         "phone_number": user.phone_number,
-        "health_care": user.health_insurance.health_insurance if user.health_insurance else "",
+        "health_care": (
+            user.health_insurance.health_insurance if user.health_insurance else ""
+        ),
         "marital_status": user.user_profile.marital_status if user.user_profile else "",
         "personal_tax_id": user.user_profile.tax_id if user.user_profile else "",
         "date_of_birth": user.user_profile.date_of_birth if user.user_profile else "",
-        "social_insurance": user.health_insurance.health_insurance_number if user.health_insurance else "",
+        "social_insurance": (
+            user.health_insurance.health_insurance_number
+            if user.health_insurance
+            else ""
+        ),
     }
 
     job = {
-        "employee_id": user.employment_details.employment_id if user.employment_details else "",
+        "employee_id": (
+            user.employment_details.employment_id if user.employment_details else ""
+        ),
         "service_year": "",
-        "join_date": user.employment_details.join_date if user.employment_details else "",
+        "join_date": (
+            user.employment_details.join_date if user.employment_details else ""
+        ),
     }
 
     payroll = {
-        "employment_status": user.employment_details.employment_status.value
-        if user.employment_details else "",
-        "job_title": user.employment_details.job_title if user.employment_details else "",
-        "employment_type": user.employment_details.employment_type.value
-        if user.employment_details else "",
-        "work_mode": user.employment_details.work_mode.value if user.employment_details else "",
-        "compensation": [comp.to_dict() for comp in user.compensation] if user.compensation else [],
+        "employment_status": (
+            user.employment_details.employment_status.value
+            if user.employment_details
+            else ""
+        ),
+        "job_title": (
+            user.employment_details.job_title if user.employment_details else ""
+        ),
+        "employment_type": (
+            user.employment_details.employment_type.value
+            if user.employment_details
+            else ""
+        ),
+        "work_mode": (
+            user.employment_details.work_mode.value if user.employment_details else ""
+        ),
+        "compensation": (
+            [comp.to_dict() for comp in user.compensation] if user.compensation else []
+        ),
     }
 
     document = {
-        "personal": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PERSONAL.value] if user.uploaded_files else [],
-        "payslip": [doc.to_dict() for doc in user.uploaded_files if doc.file_type == FileType.PAYSLIP.value] if user.uploaded_files else [],
+        "personal": (
+            [
+                doc.to_dict()
+                for doc in user.uploaded_files
+                if doc.file_type == FileType.PERSONAL.value
+            ]
+            if user.uploaded_files
+            else []
+        ),
+        "payslip": (
+            [
+                doc.to_dict()
+                for doc in user.uploaded_files
+                if doc.file_type == FileType.PAYSLIP.value
+            ]
+            if user.uploaded_files
+            else []
+        ),
     }
 
-    return {
-        "general": general,
-        "job": job,
-        "payroll": payroll,
-        "document": document
-    }
+    return {"general": general, "job": job, "payroll": payroll, "document": document}
 
 
 def create_remain(user_id: str):
     from database import get_db
+
     # Get an actual session from the generator
     db_gen = get_db()  # This returns a generator
     db = next(db_gen)  # Get the session object from generator
-    
+
     try:
         logger.info("Remain created start, user_id: %s", user_id)
-        
+
         em = EmploymentDetails(user_id=user_id)
         emg = EmergencyContact(user_id=user_id)
         hih = HealthInsurance(user_id=user_id)
         bd = BankDetails(user_id=user_id)
-        
+
         db.add_all([em, emg, hih, bd])
         db.commit()
-        
+
         logger.info("Remain created successfully for user %s", user_id)
     except Exception as e:
         db.rollback()
         logger.error("Background task failed: %s", str(e), exc_info=True)
     finally:
         try:
-            next(db_gen)  # Closes the generator (executes the finally block in get_db())
+            next(
+                db_gen
+            )  # Closes the generator (executes the finally block in get_db())
         except StopIteration:
             pass  # Generator is already exhausted
