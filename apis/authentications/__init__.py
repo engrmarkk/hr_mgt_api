@@ -5,7 +5,7 @@ from schemas import (
     VerifyEmailSchema,
     ResendOTPSchema,
     ResetTokenSchema,
-    ConfirmTokenSchema
+    ConfirmTokenSchema,
 )
 from cruds import (
     email_exists,
@@ -15,15 +15,16 @@ from cruds import (
     # save_default_side_menus,
     save_default_roles,
     get_steps,
-    get_user_via_salt, 
-    create_remain
+    get_user_via_salt,
+    create_remain,
 )
 from helpers import (
     validate_password,
     validate_correct_email,
     verify_password,
     generate_token,
-    hash_password, generate_salt
+    hash_password,
+    generate_salt,
 )
 from database import get_db
 from sqlalchemy.orm import Session
@@ -95,8 +96,7 @@ async def login(
     except Exception as e:
         logger.exception("traceback from login")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=EXCEPTION_MESSAGE
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
 
 
@@ -140,7 +140,11 @@ async def get_token(
         #     )
 
         access_token = create_access_token(data={"sub": user.id})
-        return {"access_token": access_token, "token_type": "bearer", "steps": await get_steps(db, user)}
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "steps": await get_steps(db, user),
+        }
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from login")
@@ -155,7 +159,9 @@ async def get_token(
 # register
 @auth_router.post("/register", status_code=status.HTTP_200_OK)
 async def register(
-    register_data: RegisterSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    register_data: RegisterSchema,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ):
     try:
         name = register_data.name
@@ -172,7 +178,8 @@ async def register(
         names = name.split(" ")
         if len(names) < 2:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Pls input your full name"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Pls input your full name",
             )
 
         if not valid_email_status:
@@ -189,7 +196,8 @@ async def register(
 
         if user:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot register with this email"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot register with this email",
             )
 
         last_name = names[0]
@@ -199,14 +207,13 @@ async def register(
 
         access_token = create_access_token(data={"sub": user.id})
 
-        background_tasks.add_task(
-            create_remain, user.id
-        )
+        background_tasks.add_task(create_remain, user.id)
 
-        return {"detail": "User registered successfully",
-                "access_token": access_token,
-                "token_type": "bearer"
-                }
+        return {
+            "detail": "User registered successfully",
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback from register")
@@ -316,7 +323,7 @@ async def resend_otp(
                 "subject": "Reset Password",
                 "template_name": "otp.html",
                 "token": saved_otp,
-            }
+            },
         )
         return {"detail": "OTP sent successfully", "email": res}
     except HTTPException as http_exc:
@@ -336,7 +343,9 @@ async def resend_otp(
     status_code=status.HTTP_200_OK,
 )
 async def reset_password_req(
-    request_data: ResendOTPSchema, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+    request_data: ResendOTPSchema,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ):
     try:
         email = request_data.email
@@ -359,7 +368,7 @@ async def reset_password_req(
                 "subject": "Reset Password",
                 "template_name": "otp.html",
                 "token": resp.token,
-            }
+            },
         )
         return {"detail": "Token sent"}
     except HTTPException as http_exc:
@@ -375,7 +384,9 @@ async def reset_password_req(
 
 # reset password
 @auth_router.post("/confirm_token", status_code=status.HTTP_200_OK)
-async def confirm_token(request_data: ConfirmTokenSchema, db: Session = Depends(get_db)):
+async def confirm_token(
+    request_data: ConfirmTokenSchema, db: Session = Depends(get_db)
+):
     try:
         email = request_data.email
         token = request_data.token
@@ -423,7 +434,6 @@ async def confirm_token(request_data: ConfirmTokenSchema, db: Session = Depends(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=EXCEPTION_MESSAGE
         )
-
 
 
 @auth_router.post("/reset_password", status_code=status.HTTP_200_OK)
