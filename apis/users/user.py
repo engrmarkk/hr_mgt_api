@@ -25,7 +25,7 @@ from schemas import (
     CompleteRegSchema,
     ChangePasswordSchema,
     MiscRoleSchema,
-    CreateOrgSchema
+    CreateOrgSchema,
 )
 from typing import List
 from database import get_db
@@ -38,6 +38,7 @@ from decorators import cache_it
 
 
 use_tag = ["Users"]
+
 
 # default roles
 @user_router.get(
@@ -64,6 +65,7 @@ async def get_all_roles(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
+
 
 # get all indeustries
 @user_router.get(
@@ -114,7 +116,10 @@ async def get_reasons(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
 
-@user_router.get("", status_code=status.HTTP_200_OK, tags=[use_tag], response_model=ShowUserSchema)
+
+@user_router.get(
+    "", status_code=status.HTTP_200_OK, tags=[use_tag], response_model=ShowUserSchema
+)
 # @limiter.limit("1/minute")
 async def get_user(
     request: Request,
@@ -131,7 +136,8 @@ async def get_user(
 # create company
 @user_router.post(
     "/create_company",
-    status_code=status.HTTP_201_CREATED, tags=[use_tag],
+    status_code=status.HTTP_201_CREATED,
+    tags=[use_tag],
 )
 async def create_company(
     request_data: CreateOrgSchema,
@@ -165,7 +171,8 @@ async def create_company(
 # change password
 @user_router.patch(
     "/change_password",
-    status_code=status.HTTP_200_OK, tags=[use_tag],
+    status_code=status.HTTP_200_OK,
+    tags=[use_tag],
 )
 async def change_password(
     request_data: ChangePasswordSchema,
