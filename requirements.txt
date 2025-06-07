@@ -4,7 +4,6 @@ amqp==5.3.1
 annotated-types==0.7.0
 anyio==4.5.2
 async-timeout==5.0.1
-#backports.zoneinfo==0.2.1
 backports.zoneinfo; python_version < "3.9"
 billiard==4.2.1
 black==24.8.0
@@ -23,6 +22,7 @@ exceptiongroup==1.2.2
 fastapi==0.115.7
 greenlet==3.1.1
 h11==0.14.0
+httptools==0.6.4
 idna==3.10
 importlib-metadata==8.5.0
 importlib-resources==6.4.5
@@ -46,6 +46,7 @@ python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-jose==3.3.0
 python-multipart==0.0.20
+PyYAML==6.0.2
 redis==5.2.1
 requests==2.32.3
 rsa==4.9
@@ -59,7 +60,10 @@ typing-extensions==4.12.2
 tzdata==2025.1
 urllib3==2.2.3
 uvicorn==0.33.0
+uvloop==0.21.0
 vine==5.1.0
+watchfiles==0.24.0
 wcwidth==0.2.13
+websockets==13.1
 wrapt==1.17.2
 zipp==3.20.2
