@@ -29,9 +29,7 @@ async def websocket_endpoint(websocket: WebSocket, receiver_id: str):
 
     try:
         while True:
-            data = await websocket.receive_text()
+            data = await websocket.receive_json()
             await websocket_manager.send_message(room, data)
     except WebSocketDisconnect:
         websocket_manager.disconnect(websocket, room)
-        if not websocket_manager.room_exists(room):
-            del websocket_manager.rooms[room]
