@@ -162,7 +162,7 @@ async def create_employee(
 
 
 # edit employee
-@user_router.patch(
+@user_router.put(
     "/edit_employee/{employee_id}",
     status_code=status.HTTP_200_OK,
     tags=[emp_tag],
