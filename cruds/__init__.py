@@ -508,7 +508,7 @@ async def edit_employee_details(
 ):
     try:
         if edit_type == "general":
-            full_name = data.get("full_name")
+            full_name = data.get("fullname")
             if full_name:
                 user.first_name = full_name.split(" ")[0]
                 user.last_name = full_name.split(" ")[1]
