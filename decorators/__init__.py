@@ -47,7 +47,7 @@ def cache_it(red_key: str, org: bool = False, user: bool = False):
                 logger.info("get result from decorator redis")
                 return json.loads(result)
             result = await func(*args, **kwargs)
-            redis_conn.set(redkey, json.dumps(result))
+            redis_conn.set(redkey, json.dumps(result), expire=60)
             return result
 
         return wrapper
