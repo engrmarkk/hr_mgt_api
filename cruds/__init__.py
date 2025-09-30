@@ -500,6 +500,60 @@ async def construct_employee_details(user):
     return {"general": general, "job": job, "payroll": payroll, "document": document}
 
 
+async def edit_employee_details(
+    user,
+    edit_type,
+    data,
+    db
+):
+    try:
+        if edit_type == "general":
+            full_name = data.get("full_name")
+            if full_name:
+                user.first_name = full_name.split(" ")[0]
+                user.last_name = full_name.split(" ")[1]
+            email = data.get("email")
+            if email:
+                # check if email exist
+                if await email_exists_in_org(db, email, user.organization_id) and email != user.email:
+                    return "Email already exists in this organization"
+                user.email = email
+            phone_number = data.get("phone_number")
+            if phone_number:
+                # validate phone number and check if phone number exist
+                if await validate_phone_number(phone_number):
+                    return "Invalid phone number"
+                if phone_number_exists(db, phone_number) and phone_number != user.phone_number:
+                    return "Phone number already exist"
+            user.user_profile.gender = data.get("gender", user.user_profile.gender)
+            user.user_profile.country = data.get("nationality", user.user_profile.country)
+            user.user_profile.marital_status = data.get("marital_status", user.user_profile.marital_status)
+            user.user_profile.tax_id = data.get("personal_tax_id", user.user_profile.tax_id)
+            user.user_profile.date_of_birth = data.get("date_of_birth", user.user_profile.date_of_birth)
+            user.health_insurance.health_insurance = data.get("health_care", user.health_insurance.health_insurance)
+            user.health_insurance.health_insurance_number = data.get("social_insurance", user.health_insurance.health_insurance_number)
+            db.commit()
+        elif edit_type == "job":
+            user.employment_details.job_title = data.get("job_title", user.employment_details.job_title)
+            user.employment_details.employment_type = data.get("employment_type", user.employment_details.employment_type)
+            user.employment_details.work_mode = data.get("work_mode", user.employment_details.work_mode)
+            user.employment_details.join_date = data.get("join_date", user.employment_details.join_date)
+            db.commit()
+        elif edit_type == "payroll":
+            user.employment_details.employment_status = data.get("employment_status", user.employment_details.employment_status)
+            user.employment_details.job_title = data.get("job_title", user.employment_details.job_title)
+            user.employment_details.employment_type = data.get("employment_type", user.employment_details.employment_type)
+            user.employment_details.work_mode = data.get("work_mode", user.employment_details.work_mode)
+            db.commit()
+        else:
+            return "Invalid Type"
+        
+        return None
+    except Exception as e:
+        logger.exception("traceback error from edit employee details")
+        return "Error editing emaployee"
+
+
 def create_remain(user_id: str):
     from database import get_db
 
@@ -514,8 +568,9 @@ def create_remain(user_id: str):
         emg = EmergencyContact(user_id=user_id)
         hih = HealthInsurance(user_id=user_id)
         bd = BankDetails(user_id=user_id)
+        up = UserProfile(user_id=user_id)
 
-        db.add_all([em, emg, hih, bd])
+        db.add_all([em, emg, hih, bd, up])
         db.commit()
 
         logger.info("Remain created successfully for user %s", user_id)
