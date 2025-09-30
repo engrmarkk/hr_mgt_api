@@ -507,6 +507,7 @@ async def edit_employee_details(
     db
 ):
     try:
+        logger.info(f"Edit Type in function: {edit_type}")
         if edit_type == "general":
             full_name = data.get("fullname")
             if full_name:
