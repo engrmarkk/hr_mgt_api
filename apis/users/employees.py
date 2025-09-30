@@ -17,6 +17,7 @@ from cruds import (
     get_one_employee,
     construct_employee_details,
     create_remain,
+    edit_employee_details
 )
 from helpers import (
     validate_phone_number,
@@ -76,7 +77,7 @@ async def get_all_employees(
     status_code=status.HTTP_200_OK,
     tags=[emp_tag],
 )
-@cache_it("employee", user=True)
+# @cache_it("employee", user=True)
 async def get_employee(
     employee_id: str,
     current_user: Users = Depends(get_current_user),
@@ -155,6 +156,53 @@ async def create_employee(
     except Exception as e:
         logger.exception("traceback error from create employee")
         logger.error(f"{e} : error from create employee")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# edit employee
+@user_router.patch(
+    "/edit_employee/{employee_id}",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def edit_employee(
+    employee_id: str,
+    request: Request,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = await request.json()
+        edit_type: str = data.get("edit_type")
+        data: dict = data.get("data")
+
+        if edit_type not in {"general", "job", "payroll"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid edit type",
+            )
+        employee = await get_one_employee(db, employee_id, current_user.organization_id)
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found",
+            )
+        
+        res = await edit_employee_details(employee, edit_type, data, db)
+        if res:
+            raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=res
+        )
+        return {"detail": "Successful"}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from edit employee")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from edit employee")
+        logger.error(f"{e} : error from edit employee")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
