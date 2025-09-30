@@ -526,9 +526,11 @@ async def edit_employee_details(
                     return "Invalid phone number"
                 if phone_number_exists(db, phone_number) and phone_number != user.phone_number:
                     return "Phone number already exist"
-            user.user_profile.gender = data.get("gender", user.user_profile.gender)
+            if data.get("gender"):
+                user.user_profile.gender = Gender(data.get("gender"))
             user.user_profile.country = data.get("nationality", user.user_profile.country)
-            user.user_profile.marital_status = data.get("marital_status", user.user_profile.marital_status)
+            if data.get("marital_status"):
+                user.user_profile.marital_status = MaritalStatus(data.get("marital_status"))
             user.user_profile.tax_id = data.get("personal_tax_id", user.user_profile.tax_id)
             user.user_profile.date_of_birth = data.get("date_of_birth", user.user_profile.date_of_birth)
             user.health_insurance.health_insurance = data.get("health_care", user.health_insurance.health_insurance)
