@@ -178,6 +178,8 @@ async def edit_employee(
         edit_type: str = data.get("edit_type")
         data: dict = data.get("data")
 
+        logger.info(f"Edit Type: {edit_type}: Data:{data}")
+
         if edit_type not in {"general", "job", "payroll"}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
