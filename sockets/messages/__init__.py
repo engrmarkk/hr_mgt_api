@@ -6,6 +6,7 @@ from logger import logger
 
 websocket_manager = WebSocketConnectionManager()
 
+
 # connect
 @websocket_router.websocket("/connect/{receiver_id}")
 async def websocket_endpoint(websocket: WebSocket, receiver_id: str):
