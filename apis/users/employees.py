@@ -17,7 +17,7 @@ from cruds import (
     get_one_employee,
     construct_employee_details,
     create_remain,
-    edit_employee_details
+    edit_employee_details,
 )
 from helpers import (
     validate_phone_number,
@@ -191,12 +191,10 @@ async def edit_employee(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Employee not found",
             )
-        
+
         res = await edit_employee_details(employee, edit_type, data, db)
         if res:
-            raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=res
-        )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res)
         return {"detail": "Successful"}
     except HTTPException as http_exc:
         # Log the HTTPException if needed
