@@ -2,6 +2,7 @@ from fastapi import WebSocket
 from typing import Dict, List
 from logger import logger
 
+
 class WebSocketConnectionManager:
     def __init__(self):
         self.rooms: Dict[str, List[WebSocket]] = {}
@@ -17,7 +18,7 @@ class WebSocketConnectionManager:
             self.rooms[room].remove(websocket)
             if not self.rooms[room]:
                 del self.rooms[room]
-    
+
     async def send_message(self, room: str, message: dict):
         if room in self.rooms:
             for websocket in self.rooms[room]:
