@@ -500,12 +500,7 @@ async def construct_employee_details(user):
     return {"general": general, "job": job, "payroll": payroll, "document": document}
 
 
-async def edit_employee_details(
-    user,
-    edit_type,
-    data,
-    db
-):
+async def edit_employee_details(user, edit_type, data, db):
     try:
         logger.info(f"Edit Type in function: {edit_type}")
         if edit_type == "general":
@@ -516,7 +511,10 @@ async def edit_employee_details(
             email = data.get("email")
             if email:
                 # check if email exist
-                if await email_exists_in_org(db, email, user.organization_id) and email != user.email:
+                if (
+                    await email_exists_in_org(db, email, user.organization_id)
+                    and email != user.email
+                ):
                     return "Email already exists in this organization"
                 user.email = email
             phone_number = data.get("phone_number")
@@ -524,33 +522,64 @@ async def edit_employee_details(
                 # validate phone number and check if phone number exist
                 if await validate_phone_number(phone_number):
                     return "Invalid phone number"
-                if phone_number_exists(db, phone_number) and phone_number != user.phone_number:
+                if (
+                    phone_number_exists(db, phone_number)
+                    and phone_number != user.phone_number
+                ):
                     return "Phone number already exist"
             if data.get("gender"):
                 user.user_profile.gender = Gender(data.get("gender"))
-            user.user_profile.country = data.get("nationality", user.user_profile.country)
+            user.user_profile.country = data.get(
+                "nationality", user.user_profile.country
+            )
             if data.get("marital_status"):
-                user.user_profile.marital_status = MaritalStatus(data.get("marital_status"))
-            user.user_profile.tax_id = data.get("personal_tax_id", user.user_profile.tax_id)
-            user.user_profile.date_of_birth = data.get("date_of_birth", user.user_profile.date_of_birth)
-            user.health_insurance.health_insurance = data.get("health_care", user.health_insurance.health_insurance)
-            user.health_insurance.health_insurance_number = data.get("social_insurance", user.health_insurance.health_insurance_number)
+                user.user_profile.marital_status = MaritalStatus(
+                    data.get("marital_status")
+                )
+            user.user_profile.tax_id = data.get(
+                "personal_tax_id", user.user_profile.tax_id
+            )
+            user.user_profile.date_of_birth = data.get(
+                "date_of_birth", user.user_profile.date_of_birth
+            )
+            user.health_insurance.health_insurance = data.get(
+                "health_care", user.health_insurance.health_insurance
+            )
+            user.health_insurance.health_insurance_number = data.get(
+                "social_insurance", user.health_insurance.health_insurance_number
+            )
             db.commit()
         elif edit_type == "job":
-            user.employment_details.job_title = data.get("job_title", user.employment_details.job_title)
-            user.employment_details.employment_type = data.get("employment_type", user.employment_details.employment_type)
-            user.employment_details.work_mode = data.get("work_mode", user.employment_details.work_mode)
-            user.employment_details.join_date = data.get("join_date", user.employment_details.join_date)
+            user.employment_details.job_title = data.get(
+                "job_title", user.employment_details.job_title
+            )
+            user.employment_details.employment_type = data.get(
+                "employment_type", user.employment_details.employment_type
+            )
+            user.employment_details.work_mode = data.get(
+                "work_mode", user.employment_details.work_mode
+            )
+            user.employment_details.join_date = data.get(
+                "join_date", user.employment_details.join_date
+            )
             db.commit()
         elif edit_type == "payroll":
-            user.employment_details.employment_status = data.get("employment_status", user.employment_details.employment_status)
-            user.employment_details.job_title = data.get("job_title", user.employment_details.job_title)
-            user.employment_details.employment_type = data.get("employment_type", user.employment_details.employment_type)
-            user.employment_details.work_mode = data.get("work_mode", user.employment_details.work_mode)
+            user.employment_details.employment_status = data.get(
+                "employment_status", user.employment_details.employment_status
+            )
+            user.employment_details.job_title = data.get(
+                "job_title", user.employment_details.job_title
+            )
+            user.employment_details.employment_type = data.get(
+                "employment_type", user.employment_details.employment_type
+            )
+            user.employment_details.work_mode = data.get(
+                "work_mode", user.employment_details.work_mode
+            )
             db.commit()
         else:
             return "Invalid Type"
-        
+
         return None
     except Exception as e:
         logger.exception("traceback error from edit employee details")
