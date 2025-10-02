@@ -24,6 +24,7 @@ from datetime import datetime, timedelta
 from fastapi import Request, HTTPException
 from logger import logger
 from sqlalchemy import func, desc
+from helpers import validate_phone_number
 
 
 # if email exists (fastapi)
