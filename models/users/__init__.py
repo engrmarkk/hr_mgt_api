@@ -197,6 +197,7 @@ class UserProfile(Base):
     address = Column(Text, nullable=True)
     country = Column(String(50), nullable=True)
     state = Column(String(50), nullable=True)
+    postal_code = Column(String(50), nullable=True)
     tax_id = Column(String(50), nullable=True)
     city = Column(String(50), nullable=True)
     date_of_birth = Column(DateTime, nullable=True)
@@ -209,6 +210,7 @@ class UserProfile(Base):
             "address": self.address,
             "country": self.country,
             "state": self.state,
+            "postal_code": self.postal_code,
             "city": self.city,
             "date_of_birth": self.date_of_birth,
             "marital_status": self.marital_status,
