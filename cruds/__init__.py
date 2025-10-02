@@ -436,6 +436,10 @@ async def construct_employee_details(user):
             user.health_insurance.health_insurance if user.health_insurance else ""
         ),
         "address": user.user_profile.address if user.user_profile else "",
+        "postal_code": user.user_profile.postal_code if user.user_profile else "",
+        "state": user.user_profile.state if user.user_profile else "",
+        "city": user.user_profile.city if user.user_profile else "",
+        "country": user.user_profile.country if user.user_profile else "",
         "marital_status": user.user_profile.marital_status if user.user_profile else "",
         "personal_tax_id": user.user_profile.tax_id if user.user_profile else "",
         "date_of_birth": user.user_profile.date_of_birth if user.user_profile else "",
@@ -544,6 +548,14 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             user.user_profile.date_of_birth = data.get(
                 "date_of_birth", user.user_profile.date_of_birth
+            )
+            user.user_profile.postal_code = data.get(
+                "postal_code", user.user_profile.postal_code
+            )
+            user.user_profile.state = data.get("state", user.user_profile.state)
+            user.user_profile.city = data.get("city", user.user_profile.city)
+            user.user_profile.country = data.get(
+                "country", user.user_profile.country
             )
             user.health_insurance.health_insurance = data.get(
                 "health_care", user.health_insurance.health_insurance
