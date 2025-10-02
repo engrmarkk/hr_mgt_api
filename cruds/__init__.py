@@ -24,7 +24,7 @@ from datetime import datetime, timedelta
 from fastapi import Request, HTTPException
 from logger import logger
 from sqlalchemy import func, desc
-from helpers import validate_phone_number
+from helpers import validate_phone_number, validate_correct_email
 
 
 # if email exists (fastapi)
@@ -571,6 +571,29 @@ async def edit_employee_details(user, edit_type, data, db):
             user.user_profile.address = data.get(
                 "address", user.user_profile.address
             )
+            user.emergency_contact.first_name = data.get(
+                "emergency_contact_first_name", user.emergency_contact.first_name
+            )
+            user.emergency_contact.last_name = data.get(
+                "emergency_contact_last_name", user.emergency_contact.last_name
+            )
+            emergency_contact_phone_number = data.get(
+                "emergency_contact_phone_number", user.emergency_contact.phone_number
+            )
+            if validate_phone_number(emergency_contact_phone_number):
+                return "Invalid phone number"
+            user.emergency_contact.phone_number = emergency_contact_phone_number
+            emergency_contact_email = data.get(
+                "emergency_contact_email", user.emergency_contact.email
+            )
+            if emergency_contact_email:
+                res, _ = await validate_correct_email(emergency_contact_email)
+                if not res:
+                    return "Invalid email"
+            user.emergency_contact.email = emergency_contact_email
+            user.emergency_contact.relationship = data.get(
+                "emergency_contact_relationship", user.emergency_contact.relationship
+            )
             db.commit()
         elif edit_type == "job":
             user.employment_details.job_title = data.get(
@@ -584,21 +607,6 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             user.employment_details.join_date = data.get(
                 "join_date", user.employment_details.join_date
-            )
-            user.emergency_contact.first_name = data.get(
-                "emergency_contact_first_name", user.emergency_contact.first_name
-            )
-            user.emergency_contact.last_name = data.get(
-                "emergency_contact_last_name", user.emergency_contact.last_name
-            )
-            user.emergency_contact.phone_number = data.get(
-                "emergency_contact_phone_number", user.emergency_contact.phone_number
-            )
-            user.emergency_contact.email = data.get(
-                "emergency_contact_email", user.emergency_contact.email
-            )
-            user.emergency_contact.relationship = data.get(
-                "emergency_contact_relationship", user.emergency_contact.relationship
             )
             db.commit()
         elif edit_type == "payroll":
