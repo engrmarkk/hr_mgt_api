@@ -521,10 +521,10 @@ async def edit_employee_details(user, edit_type, data, db):
             phone_number = data.get("phone_number")
             if phone_number:
                 # validate phone number and check if phone number exist
-                if await validate_phone_number(phone_number):
+                if validate_phone_number(phone_number):
                     return "Invalid phone number"
                 if (
-                    phone_number_exists(db, phone_number)
+                    await phone_number_exists(db, phone_number)
                     and phone_number != user.phone_number
                 ):
                     return "Phone number already exist"
