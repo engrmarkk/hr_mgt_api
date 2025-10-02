@@ -435,6 +435,7 @@ async def construct_employee_details(user):
         "health_care": (
             user.health_insurance.health_insurance if user.health_insurance else ""
         ),
+        "address": user.user_profile.address if user.user_profile else "",
         "marital_status": user.user_profile.marital_status if user.user_profile else "",
         "personal_tax_id": user.user_profile.tax_id if user.user_profile else "",
         "date_of_birth": user.user_profile.date_of_birth if user.user_profile else "",
@@ -528,6 +529,7 @@ async def edit_employee_details(user, edit_type, data, db):
                     and phone_number != user.phone_number
                 ):
                     return "Phone number already exist"
+                user.phone_number = phone_number
             if data.get("gender"):
                 user.user_profile.gender = Gender(data.get("gender").lower())
             user.user_profile.country = data.get(
@@ -548,6 +550,9 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             user.health_insurance.health_insurance_number = data.get(
                 "social_insurance", user.health_insurance.health_insurance_number
+            )
+            user.user_profile.address = data.get(
+                "address", user.user_profile.address
             )
             db.commit()
         elif edit_type == "job":
