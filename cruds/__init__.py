@@ -528,13 +528,13 @@ async def edit_employee_details(user, edit_type, data, db):
                 ):
                     return "Phone number already exist"
             if data.get("gender"):
-                user.user_profile.gender = Gender(data.get("gender"))
+                user.user_profile.gender = Gender(data.get("gender").lower())
             user.user_profile.country = data.get(
                 "nationality", user.user_profile.country
             )
             if data.get("marital_status"):
                 user.user_profile.marital_status = MaritalStatus(
-                    data.get("marital_status")
+                    data.get("marital_status").lower()
                 )
             user.user_profile.tax_id = data.get(
                 "personal_tax_id", user.user_profile.tax_id
