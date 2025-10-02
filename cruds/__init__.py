@@ -448,6 +448,11 @@ async def construct_employee_details(user):
             if user.health_insurance
             else ""
         ),
+        "emergency_contact_last_name": user.emergency_contact.last_name if user.emergency_contact else "",
+        "emergency_contact_first_name": user.emergency_contact.first_name if user.emergency_contact else "",
+        "emergency_contact_relationship": user.emergency_contact.relationship if user.emergency_contact else "",
+        "emergency_contact_phone_number": user.emergency_contact.phone_number if user.emergency_contact else "",
+        "emergency_contact_email": user.emergency_contact.email if user.emergency_contact else "",
     }
 
     job = {
@@ -579,6 +584,21 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             user.employment_details.join_date = data.get(
                 "join_date", user.employment_details.join_date
+            )
+            user.emergency_contact.first_name = data.get(
+                "emergency_contact_first_name", user.emergency_contact.first_name
+            )
+            user.emergency_contact.last_name = data.get(
+                "emergency_contact_last_name", user.emergency_contact.last_name
+            )
+            user.emergency_contact.phone_number = data.get(
+                "emergency_contact_phone_number", user.emergency_contact.phone_number
+            )
+            user.emergency_contact.email = data.get(
+                "emergency_contact_email", user.emergency_contact.email
+            )
+            user.emergency_contact.relationship = data.get(
+                "emergency_contact_relationship", user.emergency_contact.relationship
             )
             db.commit()
         elif edit_type == "payroll":
