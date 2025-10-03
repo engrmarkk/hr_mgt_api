@@ -448,11 +448,21 @@ async def construct_employee_details(user):
             if user.health_insurance
             else ""
         ),
-        "emergency_contact_last_name": user.emergency_contact.last_name if user.emergency_contact else "",
-        "emergency_contact_first_name": user.emergency_contact.first_name if user.emergency_contact else "",
-        "emergency_contact_relationship": user.emergency_contact.relationship if user.emergency_contact else "",
-        "emergency_contact_phone_number": user.emergency_contact.phone_number if user.emergency_contact else "",
-        "emergency_contact_email": user.emergency_contact.email if user.emergency_contact else "",
+        "emergency_contact_last_name": (
+            user.emergency_contact.last_name if user.emergency_contact else ""
+        ),
+        "emergency_contact_first_name": (
+            user.emergency_contact.first_name if user.emergency_contact else ""
+        ),
+        "emergency_contact_relationship": (
+            user.emergency_contact.relationship if user.emergency_contact else ""
+        ),
+        "emergency_contact_phone_number": (
+            user.emergency_contact.phone_number if user.emergency_contact else ""
+        ),
+        "emergency_contact_email": (
+            user.emergency_contact.email if user.emergency_contact else ""
+        ),
     }
 
     job = {
@@ -559,18 +569,14 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             user.user_profile.state = data.get("state", user.user_profile.state)
             user.user_profile.city = data.get("city", user.user_profile.city)
-            user.user_profile.country = data.get(
-                "country", user.user_profile.country
-            )
+            user.user_profile.country = data.get("country", user.user_profile.country)
             user.health_insurance.health_insurance = data.get(
                 "health_care", user.health_insurance.health_insurance
             )
             user.health_insurance.health_insurance_number = data.get(
                 "social_insurance", user.health_insurance.health_insurance_number
             )
-            user.user_profile.address = data.get(
-                "address", user.user_profile.address
-            )
+            user.user_profile.address = data.get("address", user.user_profile.address)
             user.emergency_contact.first_name = data.get(
                 "emergency_contact_first_name", user.emergency_contact.first_name
             )
