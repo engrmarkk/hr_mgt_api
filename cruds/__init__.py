@@ -15,6 +15,10 @@ from models import (
     Industry,
     Reasons,
     FileType,
+    Relationship,
+    EmploymentStatus,
+    EmploymentType,
+    WorkMode,
 )
 from helpers import hash_password
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -584,22 +588,28 @@ async def edit_employee_details(user, edit_type, data, db):
                 "emergency_contact_last_name", user.emergency_contact.last_name
             )
             emergency_contact_phone_number = data.get(
-                "emergency_contact_phone_number", user.emergency_contact.phone_number
+                "emergency_contact_phone_number"
             )
-            if validate_phone_number(emergency_contact_phone_number):
-                return "Invalid phone number"
-            user.emergency_contact.phone_number = emergency_contact_phone_number
+            if emergency_contact_phone_number:
+                if validate_phone_number(emergency_contact_phone_number):
+                    return "Invalid phone number"
+                user.emergency_contact.phone_number = emergency_contact_phone_number
             emergency_contact_email = data.get(
-                "emergency_contact_email", user.emergency_contact.email
+                "emergency_contact_email"
             )
             if emergency_contact_email:
                 res, _ = await validate_correct_email(emergency_contact_email)
                 if not res:
                     return "Invalid email"
-            user.emergency_contact.email = emergency_contact_email
-            user.emergency_contact.relationship = data.get(
-                "emergency_contact_relationship", user.emergency_contact.relationship
+                user.emergency_contact.email = emergency_contact_email
+            emergency_contact_relationship = data.get(
+                "emergency_contact_relationship"
             )
+            if emergency_contact_relationship:
+                user.emergency_contact.relationship = Relationship(
+                    emergency_contact_relationship.lower()
+                )
+
             db.commit()
         elif edit_type == "job":
             user.employment_details.job_title = data.get(
@@ -616,18 +626,30 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             db.commit()
         elif edit_type == "payroll":
-            user.employment_details.employment_status = data.get(
-                "employment_status", user.employment_details.employment_status
+            employment_details_employment_status = data.get(
+                "employment_status"
             )
+            if employment_details_employment_status:
+                user.employment_details.employment_status = EmploymentStatus(
+                    employment_details_employment_status.lower()
+                )
             user.employment_details.job_title = data.get(
                 "job_title", user.employment_details.job_title
             )
-            user.employment_details.employment_type = data.get(
-                "employment_type", user.employment_details.employment_type
+            employment_details_employment_type = data.get(
+                "employment_type"
             )
-            user.employment_details.work_mode = data.get(
-                "work_mode", user.employment_details.work_mode
+            if employment_details_employment_type:
+                user.employment_details.employment_type = EmploymentType(
+                    employment_details_employment_type.lower()
+                )
+            employment_details_work_mode = data.get(
+                "work_mode"
             )
+            if employment_details_work_mode:
+                user.employment_details.work_mode = WorkMode(
+                    employment_details_work_mode.lower()
+                )
             db.commit()
         else:
             return "Invalid Type"
