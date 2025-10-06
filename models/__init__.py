@@ -12,6 +12,9 @@ from models.users import (
     EmploymentStatus,
     MaritalStatus,
     FileType,
+    Relationship,
+    EmploymentType,
+    WorkMode,
 )
 from models.organization import (
     Organization,
