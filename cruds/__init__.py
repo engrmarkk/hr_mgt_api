@@ -19,8 +19,9 @@ from models import (
     EmploymentStatus,
     EmploymentType,
     WorkMode,
+    Compensation,
 )
-from helpers import hash_password
+from helpers import hash_password, get_service_year
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
 from datetime import datetime, timedelta
 
@@ -473,7 +474,7 @@ async def construct_employee_details(user):
         "employee_id": (
             user.employment_details.employment_id if user.employment_details else ""
         ),
-        "service_year": "",
+        "service_year": get_service_year(user.employment_details.join_date),
         "join_date": (
             user.employment_details.join_date if user.employment_details else ""
         ),
@@ -624,6 +625,10 @@ async def edit_employee_details(user, edit_type, data, db):
             user.employment_details.join_date = data.get(
                 "join_date", user.employment_details.join_date
             )
+            # emplyee id
+            user.employment_details.employment_id = data.get(
+                "employment_id", user.employment_details.employment_id
+            )
             db.commit()
         elif edit_type == "payroll":
             employment_details_employment_status = data.get(
@@ -682,7 +687,7 @@ def create_remain(user_id: str):
         logger.info("Remain created successfully for user %s", user_id)
     except Exception as e:
         db.rollback()
-        logger.error("Background task failed: %s", str(e), exc_info=True)
+        logger.error("Background task failed")
     finally:
         try:
             next(
@@ -690,3 +695,27 @@ def create_remain(user_id: str):
             )  # Closes the generator (executes the finally block in get_db())
         except StopIteration:
             pass  # Generator is already exhausted
+
+
+async def create_compensation(db, user_id, compensation_type, amount):
+    try:
+        existing_compensation = db.query(Compensation).filter_by(user_id=user_id, 
+        compensation_type=compensation_type).first()
+        
+        if existing_compensation:
+            existing_compensation.amount = amount or existing_compensation.amount
+            db.commit()
+            return existing_compensation
+
+        compensation = Compensation(
+            user_id=user_id,
+            compensation_type=compensation_type,
+            amount=amount,
+        )
+        db.add(compensation)
+        db.commit()
+        return compensation
+    except Exception as e:
+        db.rollback()
+        logger.error("Background task failed")
+        return None
