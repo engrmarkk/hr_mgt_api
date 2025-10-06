@@ -108,4 +108,4 @@ def generate_salt():
 # difference between join date and current date in years
 def get_service_year(join_date):
     today = datetime.now()
-    return today.year - join_date.year if join_date else "0"
+    return today.year - join_date.year if join_date else 0
