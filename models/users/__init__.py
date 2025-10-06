@@ -135,7 +135,7 @@ class Users(Base):
     )
     health_insurance = relationship("HealthInsurance", backref="user", uselist=False)
     bank_details = relationship("BankDetails", backref="user", uselist=False)
-    compensation = relationship("Compensation", backref="user", uselist=False)
+    compensation = relationship("Compensation", backref="user", uselist=True)
 
     def to_dict(self):
         return {
