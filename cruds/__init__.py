@@ -588,24 +588,18 @@ async def edit_employee_details(user, edit_type, data, db):
             user.emergency_contact.last_name = data.get(
                 "emergency_contact_last_name", user.emergency_contact.last_name
             )
-            emergency_contact_phone_number = data.get(
-                "emergency_contact_phone_number"
-            )
+            emergency_contact_phone_number = data.get("emergency_contact_phone_number")
             if emergency_contact_phone_number:
                 if validate_phone_number(emergency_contact_phone_number):
                     return "Invalid phone number"
                 user.emergency_contact.phone_number = emergency_contact_phone_number
-            emergency_contact_email = data.get(
-                "emergency_contact_email"
-            )
+            emergency_contact_email = data.get("emergency_contact_email")
             if emergency_contact_email:
                 res, _ = await validate_correct_email(emergency_contact_email)
                 if not res:
                     return "Invalid email"
                 user.emergency_contact.email = emergency_contact_email
-            emergency_contact_relationship = data.get(
-                "emergency_contact_relationship"
-            )
+            emergency_contact_relationship = data.get("emergency_contact_relationship")
             if emergency_contact_relationship:
                 user.emergency_contact.relationship = Relationship(
                     emergency_contact_relationship.lower()
@@ -631,9 +625,7 @@ async def edit_employee_details(user, edit_type, data, db):
             )
             db.commit()
         elif edit_type == "payroll":
-            employment_details_employment_status = data.get(
-                "employment_status"
-            )
+            employment_details_employment_status = data.get("employment_status")
             if employment_details_employment_status:
                 user.employment_details.employment_status = EmploymentStatus(
                     employment_details_employment_status.lower()
@@ -641,16 +633,12 @@ async def edit_employee_details(user, edit_type, data, db):
             user.employment_details.job_title = data.get(
                 "job_title", user.employment_details.job_title
             )
-            employment_details_employment_type = data.get(
-                "employment_type"
-            )
+            employment_details_employment_type = data.get("employment_type")
             if employment_details_employment_type:
                 user.employment_details.employment_type = EmploymentType(
                     employment_details_employment_type.lower()
                 )
-            employment_details_work_mode = data.get(
-                "work_mode"
-            )
+            employment_details_work_mode = data.get("work_mode")
             if employment_details_work_mode:
                 user.employment_details.work_mode = WorkMode(
                     employment_details_work_mode.lower()
@@ -699,9 +687,12 @@ def create_remain(user_id: str):
 
 async def create_compensation(db, user_id, compensation_type, amount):
     try:
-        existing_compensation = db.query(Compensation).filter_by(user_id=user_id, 
-        compensation_type=compensation_type).first()
-        
+        existing_compensation = (
+            db.query(Compensation)
+            .filter_by(user_id=user_id, compensation_type=compensation_type)
+            .first()
+        )
+
         if existing_compensation:
             existing_compensation.amount = amount or existing_compensation.amount
             db.commit()

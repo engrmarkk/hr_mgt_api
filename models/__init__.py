@@ -15,7 +15,7 @@ from models.users import (
     Relationship,
     EmploymentType,
     WorkMode,
-    Compensation
+    Compensation,
 )
 from models.organization import (
     Organization,
