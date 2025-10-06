@@ -103,3 +103,9 @@ def validate_phone_number(phone_number):
 
 def generate_salt():
     return secrets.token_hex(16)
+
+
+# difference between join date and current date in years
+def get_service_year(join_date):
+    today = datetime.now()
+    return today.year - join_date.year if join_date else "0"
