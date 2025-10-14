@@ -687,6 +687,8 @@ def create_remain(user_id: str):
 
 async def create_compensation(db, user_id, compensation_type, amount):
     try:
+        if not compensation_type:
+            return False
         existing_compensation = (
             db.query(Compensation)
             .filter_by(user_id=user_id, compensation_type=compensation_type)
