@@ -222,14 +222,13 @@ async def compensation(
 ):
     try:
         data = await request.json()
-        compensation_type = data.get("compensation_type")
+        comps = data.get("compensations", [])
         user_id = data.get("user_id")
-        amount = data.get("amount")
 
-        if not compensation_type or not amount or not user_id:
+        if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Compensation type, amount and user id are required",
+                detail="user id are required",
             )
 
         employee = await get_one_employee(db, user_id, current_user.organization_id)
@@ -239,14 +238,15 @@ async def compensation(
                 detail="Employee not found",
             )
 
-        compensation = await create_compensation(
-            db, employee.id, compensation_type, amount
-        )
-        if not compensation:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to create compensation",
+        for comp in comps:
+            compensation_ = await create_compensation(
+                db, employee.id, compensation_type = comp.get("compensation_type"), amount = comp.get("amount")
             )
+        # if not compensation_:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Failed to create compensation",
+        #     )
 
         return {"msg": "Compensation created successfully"}
     except HTTPException as http_exc:
