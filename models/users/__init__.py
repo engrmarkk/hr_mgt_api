@@ -192,7 +192,7 @@ class Users(Base):
 class UserProfile(Base):
     __tablename__ = "user_profile"
     id = Column(String(50), primary_key=True, default=generate_uuid)
-    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
+    user_id = Column(String(50), ForeignKey("users.id"))
     gender = Column(SQLAlchemyEnum(Gender), default=Gender.MALE, nullable=False)
     address = Column(Text, nullable=True)
     country = Column(String(50), nullable=True)
@@ -220,7 +220,7 @@ class UserProfile(Base):
 class EmploymentDetails(Base):
     __tablename__ = "employment_details"
     id = Column(String(50), primary_key=True, default=generate_uuid)
-    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
+    user_id = Column(String(50), ForeignKey("users.id"))
     employment_id = Column(String(50), nullable=True)
     job_title = Column(String(70), nullable=True)
     join_date = Column(DateTime, nullable=True)
@@ -240,7 +240,7 @@ class EmploymentDetails(Base):
 class Compensation(Base):
     __tablename__ = "compensation"
     id = Column(String(50), primary_key=True, default=generate_uuid)
-    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
+    user_id = Column(String(50), ForeignKey("users.id"))
     compensation_type = Column(String(50), nullable=True)
     amount = Column(Float, nullable=True)
 
@@ -254,7 +254,7 @@ class Compensation(Base):
 class HealthInsurance(Base):
     __tablename__ = "health_insurance"
     id = Column(String(50), primary_key=True, default=generate_uuid)
-    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
+    user_id = Column(String(50), ForeignKey("users.id"))
     health_insurance = Column(String(50), nullable=True)
     health_insurance_number = Column(String(50), nullable=True)
 
@@ -262,7 +262,7 @@ class HealthInsurance(Base):
 class BankDetails(Base):
     __tablename__ = "bank_details"
     id = Column(String(50), primary_key=True, default=generate_uuid)
-    user_id = Column(String(50), ForeignKey("users.id"), unique=True)
+    user_id = Column(String(50), ForeignKey("users.id"))
     bank_name = Column(String(50), nullable=True)
     account_number = Column(String(50), nullable=True)
 
