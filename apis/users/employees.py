@@ -225,6 +225,8 @@ async def compensation(
         comps = data.get("compensations", [])
         user_id = data.get("user_id")
 
+        logger.info(f"UserID: {user_id}, comps: {comps}")
+
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -239,8 +241,12 @@ async def compensation(
             )
 
         for comp in comps:
-            compensation_ = await create_compensation(
-                db, employee.id, compensation_type = comp.get("compensation_type"), amount = comp.get("amount")
+            logger.info(f"Compensation: {comp}")
+            await create_compensation(
+                db,
+                employee.id,
+                compensation_type=comp.get("compensation_type"),
+                amount=comp.get("amount"),
             )
         # if not compensation_:
         #     raise HTTPException(
