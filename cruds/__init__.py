@@ -687,6 +687,7 @@ def create_remain(user_id: str):
 
 async def create_compensation(db, user_id, compensation_type, amount):
     try:
+        logger.info(f"UserID: {user_id}, CompType: {compensation_type}, Amount: {amount}")
         if not compensation_type:
             return False
         existing_compensation = (
@@ -707,6 +708,7 @@ async def create_compensation(db, user_id, compensation_type, amount):
         )
         db.add(compensation)
         db.commit()
+        logger.info(f"Done saving {compensation_type}")
         return compensation
     except Exception as e:
         db.rollback()
