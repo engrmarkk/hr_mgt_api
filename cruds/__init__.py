@@ -712,5 +712,5 @@ async def create_compensation(db, user_id, compensation_type, amount):
         return compensation
     except Exception as e:
         db.rollback()
-        logger.error("Background task failed")
+        logger.exception("Background task failed")
         return None
