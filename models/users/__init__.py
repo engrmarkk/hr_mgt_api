@@ -314,6 +314,6 @@ class UploadedFiles(Base):
             "id": self.id,
             "file_name": self.file_name,
             "file_url": self.file_url,
-            "file_type": self.file_type,
+            "file_type": self.file_type.value,
             "created_at": self.created_at,
         }
