@@ -6,6 +6,12 @@ import secrets
 import string
 from datetime import datetime
 from email_validator import validate_email, EmailNotValidError
+from logger import logger
+import base64
+from io import BytesIO
+import hmac
+import hashlib
+import time
 
 
 def format_datetime(date_time):
@@ -109,3 +115,33 @@ def generate_salt():
 def get_service_year(join_date):
     today = datetime.now()
     return today.year - join_date.year if join_date else 0
+
+
+def convert_binary(base64_file):
+    try:
+        logger.info("got here")
+        binary_data = base64.b64decode(base64_file)
+        # Convert binary data to a file-like object
+        file_like = BytesIO(binary_data)
+        logger.info(f"{file_like} file_like from convert_binary")
+        return file_like
+    except Exception as e:
+        logger.error(f"{e}: error from convert_binary")
+        return None
+
+
+def generate_signature(params_to_sign, api_secret):
+    try:
+        params_to_sign["timestamp"] = int(time.time())
+        sorted_params = "&".join(
+            [f"{k}={params_to_sign[k]}" for k in sorted(params_to_sign)]
+        )
+        to_sign = f"{sorted_params}{api_secret}"
+        signature = hmac.new(
+            api_secret.encode("utf-8"), to_sign.encode("utf-8"), hashlib.sha1
+        ).hexdigest()
+        logger.info(f"{signature}: signature from generate_signature")
+        return signature
+    except Exception as e:
+        logger.error(f"{e}: error from generate_signature")
+        return None
