@@ -9,7 +9,7 @@ from fastapi import (
 )
 from security import get_current_user
 from sqlalchemy.orm import Session
-from models import Users
+from models import Users, FileType
 from cruds import (
     get_employees,
     create_one_employee,
@@ -19,6 +19,7 @@ from cruds import (
     create_remain,
     edit_employee_details,
     create_compensation,
+    create_edit_uploaded_files,
 )
 from helpers import (
     validate_phone_number,
@@ -262,6 +263,74 @@ async def compensation(
     except Exception as e:
         logger.exception("traceback error from create compensation")
         logger.error(f"{e} : error from create compensation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# documents upload
+@user_router.post(
+    "/documents_upload",
+    status_code=status.HTTP_201_CREATED,
+    tags=[emp_tag],
+)
+async def documents_upload(
+    request: Request,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    file_id: str = "",
+):
+    try:
+        data = await request.json()
+        file_name = data.get("file_name")
+        file_url = data.get("file_url")
+        file_type = data.get("file_type")
+        user_id = data.get("user_id")
+
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="user id are required",
+            )
+
+        # validate file type using FileType Enum
+        try:
+            file_type_enum = FileType(file_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file type",
+            )
+
+        employee = await get_one_employee(db, user_id, current_user.organization_id)
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found",
+            )
+
+        await create_edit_uploaded_files(
+            db,
+            employee.id,
+            file_name,
+            file_url,
+            file_type,
+            file_id
+        )
+        # if not documents:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Failed to create documents",
+        #     )
+
+        return {"msg": "Documents uploaded successfully"}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from documents upload")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from documents upload")
+        logger.error(f"{e} : error from documents upload")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
