@@ -310,12 +310,7 @@ async def documents_upload(
             )
 
         await create_edit_uploaded_files(
-            db,
-            employee.id,
-            file_name,
-            file_url,
-            file_type,
-            file_id
+            db, employee.id, file_name, file_url, file_type, file_id
         )
         # if not documents:
         #     raise HTTPException(
