@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException
-from apis import ping_router, auth_router, user_router
+from apis import ping_router, auth_router, user_router, cloudinary_router
 from sockets import websocket_router
 from database import engine, Base
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,5 +63,6 @@ def create_app():
     app.include_router(ping_router)
     app.include_router(auth_router, prefix=f"/{API_VERSION}")
     app.include_router(user_router, prefix=f"/{API_VERSION}")
+    app.include_router(cloudinary_router, prefix=f"/{API_VERSION}")
     app.include_router(websocket_router)
     return app
