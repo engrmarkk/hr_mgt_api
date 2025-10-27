@@ -20,6 +20,7 @@ from models import (
     EmploymentType,
     WorkMode,
     Compensation,
+    UploadedFiles,
 )
 from helpers import hash_password, get_service_year
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -507,7 +508,7 @@ async def construct_employee_details(user):
             [
                 doc.to_dict()
                 for doc in user.uploaded_files
-                if doc.file_type == FileType.PERSONAL.value
+                if doc.file_type == FileType.PERSONAL
             ]
             if user.uploaded_files
             else []
@@ -516,7 +517,7 @@ async def construct_employee_details(user):
             [
                 doc.to_dict()
                 for doc in user.uploaded_files
-                if doc.file_type == FileType.PAYSLIP.value
+                if doc.file_type == FileType.PAYSLIP
             ]
             if user.uploaded_files
             else []
@@ -687,7 +688,9 @@ def create_remain(user_id: str):
 
 async def create_compensation(db, user_id, compensation_type, amount):
     try:
-        logger.info(f"UserID: {user_id}, CompType: {compensation_type}, Amount: {amount}")
+        logger.info(
+            f"UserID: {user_id}, CompType: {compensation_type}, Amount: {amount}"
+        )
         if not compensation_type:
             return False
         existing_compensation = (
@@ -710,6 +713,38 @@ async def create_compensation(db, user_id, compensation_type, amount):
         db.commit()
         logger.info(f"Done saving {compensation_type}")
         return compensation
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# create/edit uploaded files
+# the id will be optional, if its available, check if thr filr exists and update it
+async def create_edit_uploaded_files(
+    db, user_id, file_name, file_url, file_type, upload_id=None
+):
+    try:
+        if upload_id:
+            uploaded_file = (
+                db.query(UploadedFiles).filter_by(id=upload_id, user_id=user_id).first()
+            )
+            if not uploaded_file:
+                return None
+            uploaded_file.file_name = file_name
+            uploaded_file.file_url = file_url
+            uploaded_file.file_type = FileType(file_type)
+            db.commit()
+            return uploaded_file
+        uploaded_file = UploadedFiles(
+            user_id=user_id,
+            file_name=file_name,
+            file_url=file_url,
+            file_type=FileType(file_type),
+        )
+        db.add(uploaded_file)
+        db.commit()
+        return uploaded_file
     except Exception as e:
         db.rollback()
         logger.exception("Background task failed")
