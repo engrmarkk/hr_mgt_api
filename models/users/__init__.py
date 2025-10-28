@@ -302,7 +302,7 @@ class UploadedFiles(Base):
     __tablename__ = "uploaded_files"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     file_name = Column(String(100))
-    file_url = Column(String(100))
+    file_url = Column(String(200))
     file_type = Column(
         SQLAlchemyEnum(FileType), default=FileType.PERSONAL, nullable=True
     )
