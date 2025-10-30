@@ -21,6 +21,9 @@ from models import (
     WorkMode,
     Compensation,
     UploadedFiles,
+    LeaveRequest,
+    LeaveStatus,
+    LeaveType,
 )
 from helpers import hash_password, get_service_year
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -29,7 +32,7 @@ from datetime import datetime, timedelta
 # from celery_config.utils.cel_workers import send_mail
 from fastapi import Request, HTTPException
 from logger import logger
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, asc
 from helpers import validate_phone_number, validate_correct_email
 
 
@@ -745,6 +748,107 @@ async def create_edit_uploaded_files(
         db.add(uploaded_file)
         db.commit()
         return uploaded_file
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+async def get_leave_requests(
+    db, organization_id, start_date, end_date, leave_status, leave_type, page, per_page
+):
+    try:
+        leave_requests = (
+            db.query(LeaveRequest)
+            .join(Users, LeaveRequest.user_id == Users.id)
+            .filter(Users.organization_id == organization_id)
+        )
+        if start_date:
+            leave_requests = leave_requests.filter(
+                LeaveRequest.start_date >= start_date
+            )
+        if end_date:
+            leave_requests = leave_requests.filter(LeaveRequest.end_date <= end_date)
+        if leave_status:
+            leave_requests = leave_requests.filter(
+                LeaveRequest.status == LeaveStatus(leave_status)
+            )
+        if leave_type:
+            leave_requests = leave_requests.filter(
+                LeaveRequest.leave_type_id == leave_type
+            )
+        leave_requests = (
+            leave_requests.offset((page - 1) * per_page).limit(per_page).all()
+        )
+        return leave_requests
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+async def get_one_leave_type(db, leave_type_id):
+    return db.query(LeaveType).filter_by(id=leave_type_id).first()
+
+
+# save leave request
+async def save_leave_request(
+    db, user_id, leave_type_id, start_date, end_date, note, document_url, document_name
+):
+    try:
+        leave_request = LeaveRequest(
+            user_id=user_id,
+            leave_type_id=leave_type_id,
+            start_date=start_date,
+            end_date=end_date,
+            note=note,
+            document_url=document_url,
+            document_name=document_name,
+        )
+        db.add(leave_request)
+        db.commit()
+        return leave_request
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+async def get_all_leave_types(db, organization_id):
+    try:
+        leave_types = (
+            db.query(LeaveType)
+            .filter_by(organization_id=organization_id)
+            .order_by(asc(LeaveType.name))
+            .all()
+        )
+        return leave_types
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# create leave type
+async def create_leave_type(db, organization_id, leave_type_name, leave_type_duration):
+    try:
+        if (
+            db.query(LeaveType)
+            .filter(
+                LeaveType.organization_id == organization_id,
+                LeaveType.name.ilike(leave_type_name),
+            )
+            .first()
+        ):
+            return None
+        leave_type = LeaveType(
+            organization_id=organization_id,
+            name=leave_type_name,
+            duration=leave_type_duration,
+        )
+        db.add(leave_type)
+        db.commit()
+        return leave_type
     except Exception as e:
         db.rollback()
         logger.exception("Background task failed")
