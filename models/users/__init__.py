@@ -75,6 +75,12 @@ class FileType(Enum):
     PERSONAL = "personal"
 
 
+class LeaveStatus(Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class Roles(Base):
     __tablename__ = "roles"
 
@@ -136,6 +142,7 @@ class Users(Base):
     health_insurance = relationship("HealthInsurance", backref="user", uselist=False)
     bank_details = relationship("BankDetails", backref="user", uselist=False)
     compensation = relationship("Compensation", backref="user", uselist=True)
+    leave_requests = relationship("LeaveRequest", backref="user", uselist=True)
 
     def to_dict(self):
         return {
@@ -316,4 +323,61 @@ class UploadedFiles(Base):
             "file_url": self.file_url,
             "file_type": self.file_type.value,
             "created_at": self.created_at,
+        }
+
+
+# leave type
+class LeaveType(Base):
+    __tablename__ = "leave_type"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(50))
+    duration = Column(Integer)
+    organization_id = Column(String(50), ForeignKey("organization.id"))
+    created_at = Column(DateTime, default=datetime.now)
+    organization = relationship("Organization", back_populates="leave_types")
+
+    leave_requests = relationship("LeaveRequest", backref="leave_type", uselist=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "duration": self.duration,
+            "created_at": self.created_at,
+        }
+
+
+# leave request
+class LeaveRequest(Base):
+    __tablename__ = "leave_request"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    user_id = Column(String(50), ForeignKey("users.id"))
+    leave_type_id = Column(String(50), ForeignKey("leave_type.id"))
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.now)
+    note = Column(Text)
+    document_url = Column(Text)
+    document_name = Column(String(100))
+    status = Column(
+        SQLAlchemyEnum(LeaveStatus), default=LeaveStatus.PENDING, nullable=False
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user": {
+                "id": self.user_id,
+                "first_name": self.user.first_name,
+                "last_name": self.user.last_name,
+                "email": self.user.email,
+            },
+            "leave_type": self.leave_type.name,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "created_at": self.created_at,
+            "note": self.note,
+            "document_url": self.document_url,
+            "document_name": self.document_name,
+            "status": self.status.value,
         }
