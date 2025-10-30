@@ -68,6 +68,7 @@ class Organization(Base):
     active = Column(Boolean, default=True)
     deleted = Column(Boolean, default=False)
     users = relationship("Users", back_populates="organization")
+    leave_types = relationship("LeaveType", back_populates="organization")
 
 
 # class SideMenu(Base):
