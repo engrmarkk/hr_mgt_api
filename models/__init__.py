@@ -16,6 +16,9 @@ from models.users import (
     EmploymentType,
     WorkMode,
     Compensation,
+    LeaveType,
+    LeaveStatus,
+    LeaveRequest,
 )
 from models.organization import (
     Organization,
