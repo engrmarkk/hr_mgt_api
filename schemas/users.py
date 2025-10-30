@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_serializer, HttpUrl
+from pydantic import BaseModel, EmailStr, field_serializer, HttpUrl, validator
 from typing import Optional
 from datetime import datetime
 
@@ -119,3 +119,30 @@ class CreateEmployeeSchema(BaseModel):
     last_name: str
     email: str
     date_joined: str
+
+
+class LeaveRequestSchema(BaseModel):
+    leave_type_id: str
+    start_date: str
+    end_date: Optional[str] = None
+    note: Optional[str] = None
+    document_url: Optional[str] = None
+    document_name: Optional[str] = None
+
+    @validator("start_date", "end_date")
+    def validate_date_format(cls, v):
+        if v:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                raise ValueError("Date must be in YYYY-MM-DD format")
+        return v
+
+    @validator("end_date")
+    def validate_end_date(cls, v, values):
+        if v and "start_date" in values and values["start_date"]:
+            start_date = datetime.strptime(values["start_date"], "%Y-%m-%d")
+            end_date = datetime.strptime(v, "%Y-%m-%d")
+            if start_date > end_date:
+                raise ValueError("Start date must be before end date")
+        return v
