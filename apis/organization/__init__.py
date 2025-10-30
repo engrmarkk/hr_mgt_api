@@ -8,7 +8,7 @@ from cruds import (
     create_organization,
     create_role,
     check_if_org_in_orgtable,
-    get_side_menus,
+    # get_side_menus,
 )
 from helpers import (
     validate_phone_number,
@@ -51,24 +51,24 @@ async def get_organization(
 
 
 # get_side_menus
-@org_router.get(
-    "/get_side_menus",
-    status_code=status.HTTP_200_OK,
-    # response_model=MiscMenuSchema,
-)
-async def get_all_side_menus(
-    current_user: Users = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    try:
-        menus = await get_side_menus(db)
-        return {"data": menus}
-    except HTTPException as http_exc:
-        # Log the HTTPException if needed
-        logger.exception("traceback error from get side menu")
-        raise http_exc
-    except Exception as e:
-        logger.exception("traceback error from get side menu")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
-        )
+# @org_router.get(
+#     "/get_side_menus",
+#     status_code=status.HTTP_200_OK,
+#     # response_model=MiscMenuSchema,
+# )
+# async def get_all_side_menus(
+#     current_user: Users = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     try:
+#         menus = await get_side_menus(db)
+#         return {"data": menus}
+#     except HTTPException as http_exc:
+#         # Log the HTTPException if needed
+#         logger.exception("traceback error from get side menu")
+#         raise http_exc
+#     except Exception as e:
+#         logger.exception("traceback error from get side menu")
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+#         )
