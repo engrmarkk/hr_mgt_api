@@ -20,6 +20,10 @@ from cruds import (
     edit_employee_details,
     create_compensation,
     create_edit_uploaded_files,
+    get_leave_requests,
+    get_one_leave_type,
+    save_leave_request,
+    get_all_leave_types,
 )
 from helpers import (
     validate_phone_number,
@@ -28,7 +32,7 @@ from helpers import (
     verify_password,
     validate_correct_email,
 )
-from schemas import CreateEmployeeSchema
+from schemas import CreateEmployeeSchema, LeaveRequestSchema
 from typing import List
 from database import get_db
 from utils import limiter
@@ -255,7 +259,7 @@ async def compensation(
         #         detail="Failed to create compensation",
         #     )
 
-        return {"msg": "Compensation created successfully"}
+        return {"detail": "Compensation created successfully"}
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from create compensation")
@@ -318,7 +322,7 @@ async def documents_upload(
         #         detail="Failed to create documents",
         #     )
 
-        return {"msg": "Documents uploaded successfully"}
+        return {"detail": "Documents uploaded successfully"}
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from documents upload")
@@ -326,6 +330,177 @@ async def documents_upload(
     except Exception as e:
         logger.exception("traceback error from documents upload")
         logger.error(f"{e} : error from documents upload")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get leabe requests
+@user_router.get(
+    "/leave_requests",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def leave_requests(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    start_date=Query(None),
+    end_date=Query(None),
+    leave_status=Query(None),
+    leave_type=Query(None),
+    page: int = Query(1, gt=0),
+    per_page: int = Query(10, gt=0),
+):
+    try:
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, "%Y-%m-%d")
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="start_date must be in this format YYYY-MM-DD",
+                )
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, "%Y-%m-%d")
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="end_date must be in this format YYYY-MM-DD",
+                )
+        if leave_status:
+            if leave_status not in ["pending", "approved", "rejected"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="leave_status must be in this format YYYY-MM-DD",
+                )
+        leave_reqs = await get_leave_requests(
+            db,
+            current_user.organization_id,
+            start_date,
+            end_date,
+            leave_status,
+            leave_type,
+            page,
+            per_page,
+        )
+        return {
+            "detail": "Data fetched successfully",
+            "data": [leave_request.to_dict() for leave_request in leave_reqs],
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get leave requests")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get leave requests")
+        logger.error(f"{e} : error from get leave requests")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# request for leave
+@user_router.post(
+    "/request_for_leave",
+    status_code=status.HTTP_201_CREATED,
+    tags=[emp_tag],
+)
+async def request_for_leave(
+    request_data: LeaveRequestSchema,  # ✅ Use Pydantic model
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        # Extract data from validated model
+        leave_type_id = request_data.leave_type_id
+        start_date_str = request_data.start_date
+        end_date_str = request_data.end_date
+
+        # Convert to datetime objects
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+        end_date = (
+            datetime.strptime(end_date_str, "%Y-%m-%d") if end_date_str else start_date
+        )
+
+        # Check if leave type exists
+        leave_type = await get_one_leave_type(db, leave_type_id)
+        if not leave_type:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Leave Type not found",
+            )
+
+        # Calculate duration
+        diff = (end_date - start_date).days + 1
+
+        logger.info(
+            f"The diff between end date: {end_date} and start date: {start_date} is: {diff}"
+        )
+
+        # Validate duration
+        if diff > leave_type.duration:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Leave duration ({diff} days) exceeds maximum ({leave_type.duration} days)",
+            )
+
+        # Save leave request
+        await save_leave_request(
+            db,
+            current_user.id,
+            leave_type_id,
+            start_date,
+            end_date,
+            request_data.note,
+            request_data.document_url,
+            request_data.document_name,
+        )
+
+        # Return appropriate message
+        message = (
+            "Single day leave request created successfully"
+            if diff == 1
+            else f"{diff}-day leave request created successfully"
+        )
+        return {"detail": message}
+
+    except HTTPException as http_exc:
+        logger.exception("traceback error from request for leave")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from request for leave")
+        logger.error(f"{e} : error from request for leave")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get leave types
+@user_router.get(
+    "/leave_types",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+    # response_model=List[MiscRoleSchema],
+)
+# @cache_it("leave_types", org=True)
+async def get_leave_types(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        leave_types = await get_all_leave_types(db, current_user.organization_id)
+        return {
+            "detail": "Data fetched successfully",
+            "data": [leave_type.to_dict() for leave_type in leave_types],
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get leave types")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get leave types")
+        logger.error(f"{e} : error from get leave types")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
