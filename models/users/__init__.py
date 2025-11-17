@@ -376,6 +376,9 @@ class LeaveRequest(Base):
             "start_date": self.start_date,
             "end_date": self.end_date,
             "created_at": self.created_at,
+            # date difference
+            # "days": (self.end_date - self.start_date).days + 1,
+            "days": self.end_date - self.start_date,
             "note": self.note,
             "document_url": self.document_url,
             "document_name": self.document_name,
