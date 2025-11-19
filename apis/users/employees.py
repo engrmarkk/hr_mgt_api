@@ -24,6 +24,9 @@ from cruds import (
     get_one_leave_type,
     save_leave_request,
     get_all_leave_types,
+    create_holiday,
+    holiday_exists,
+    get_one_holiday,
 )
 from helpers import (
     validate_phone_number,
@@ -383,6 +386,7 @@ async def leave_requests(
             leave_type,
             page,
             per_page,
+            current_user,
         )
         return {
             "detail": "Data fetched successfully",
@@ -407,7 +411,7 @@ async def leave_requests(
     tags=[emp_tag],
 )
 async def request_for_leave(
-    request_data: LeaveRequestSchema,  # ✅ Use Pydantic model
+    request_data: LeaveRequestSchema,
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -501,6 +505,201 @@ async def get_leave_types(
     except Exception as e:
         logger.exception("traceback error from get leave types")
         logger.error(f"{e} : error from get leave types")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+@user_router.get(
+    "/employees_timeoff",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def employees_timeoff(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    start_date=Query(None),
+    end_date=Query(None),
+    leave_status=Query(None),
+    leave_type=Query(None),
+    page: int = Query(1, gt=0),
+    per_page: int = Query(10, gt=0),
+):
+    try:
+        if start_date:
+            try:
+                start_date = datetime.strptime(start_date, "%Y-%m-%d")
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="start_date must be in this format YYYY-MM-DD",
+                )
+        if end_date:
+            try:
+                end_date = datetime.strptime(end_date, "%Y-%m-%d")
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="end_date must be in this format YYYY-MM-DD",
+                )
+        if leave_status:
+            if leave_status not in ["pending", "approved", "rejected"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="leave_status must be in this format YYYY-MM-DD",
+                )
+        leave_reqs = await get_leave_requests(
+            db,
+            current_user.organization_id,
+            start_date,
+            end_date,
+            leave_status,
+            leave_type,
+            page,
+            per_page,
+        )
+        return {
+            "detail": "Data fetched successfully",
+            "data": [leave_request.to_dict() for leave_request in leave_reqs],
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get leave requests")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get leave requests")
+        logger.error(f"{e} : error from get leave requests")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# create holiday
+@user_router.post(
+    "/create_holiday",
+    status_code=status.HTTP_201_CREATED,
+    tags=[emp_tag],
+)
+async def create_holidays(
+    request: Request,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = await request.json()
+        name = data.get("name")
+        from_date = data.get("from_date")
+        to_date = data.get("to_date")
+
+        if not name or not from_date or not to_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required fields",
+            )
+
+        if holiday_exists(db, current_user.organization_id, name):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Holiday already exists",
+            )
+
+        # convert from_date and to_date to datetime
+        try:
+            from_date = datetime.strptime(from_date, "%Y-%m-%d")
+            to_date = datetime.strptime(to_date, "%Y-%m-%d")
+        except:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="from_date and to_date must be in this format YYYY-MM-DD",
+            )
+
+        # create holiday
+        holiday = await create_holiday(
+            db, current_user.organization_id, name, from_date, to_date
+        )
+        return {
+            "detail": "Holiday created successfully",
+            "data": holiday.to_dict(),
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from create holiday")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from create holiday")
+        logger.error(f"{e} : error from create holiday")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# edit holiday
+@user_router.put(
+    "/edit_holiday/{holiday_id}",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def edit_holiday(
+    request: Request,
+    holiday_id: str,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = await request.json()
+        name = data.get("name")
+        from_date = data.get("from_date")
+        to_date = data.get("to_date")
+
+        holiday = await get_one_holiday(db, holiday_id, current_user.organization_id)
+        if not holiday:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Holiday not found",
+            )
+
+        if name:
+            if holiday_exists(db, current_user.organization_id, name):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Holiday with this name already exists",
+                )
+
+        if from_date:
+            try:
+                from_date = datetime.strptime(from_date, "%Y-%m-%d")
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="from_date must be in this format YYYY-MM-DD",
+                )
+        if to_date:
+            try:
+                to_date = datetime.strptime(to_date, "%Y-%m-%d")
+            except:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="to_date must be in this format YYYY-MM-DD",
+                )
+
+        holiday.name = name or holiday.name
+        holiday.from_date = from_date or holiday.from_date
+        holiday.to_date = to_date or holiday.to_date
+
+        db.commit()
+        db.refresh(holiday)
+
+        return {
+            "detail": "Holiday updated successfully",
+            "data": holiday.to_dict(),
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from edit holiday")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from edit holiday")
+        logger.error(f"{e} : error from edit holiday")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
