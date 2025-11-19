@@ -10,7 +10,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import relationship
-from helpers import generate_uuid
+from helpers import generate_uuid, format_datetime
 from datetime import datetime, timedelta
 from constants import OTP_EXPIRES
 
@@ -90,6 +90,8 @@ class Holiday(Base):
             "name": self.name.title(),
             "from_date": self.from_date,
             "to_date": self.to_date,
+            "formatted_from_date": format_datetime(self.from_date),
+            "formatted_to_date": format_datetime(self.to_date),
         }
 
 
