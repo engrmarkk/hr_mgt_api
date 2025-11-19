@@ -27,6 +27,7 @@ from cruds import (
     create_holiday,
     holiday_exists,
     get_one_holiday,
+    get_holidays,
 )
 from helpers import (
     validate_phone_number,
@@ -390,7 +391,7 @@ async def leave_requests(
         )
         return {
             "detail": "Data fetched successfully",
-            "data": [leave_request.to_dict() for leave_request in leave_reqs],
+            **leave_reqs,
         }
     except HTTPException as http_exc:
         # Log the HTTPException if needed
@@ -560,7 +561,7 @@ async def employees_timeoff(
         )
         return {
             "detail": "Data fetched successfully",
-            "data": [leave_request.to_dict() for leave_request in leave_reqs],
+            **leave_reqs,
         }
     except HTTPException as http_exc:
         # Log the HTTPException if needed
@@ -597,7 +598,7 @@ async def create_holidays(
                 detail="Missing required fields",
             )
 
-        if holiday_exists(db, current_user.organization_id, name):
+        if await holiday_exists(db, current_user.organization_id, name):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Holiday already exists",
@@ -634,7 +635,7 @@ async def create_holidays(
 
 
 # edit holiday
-@user_router.put(
+@user_router.patch(
     "/edit_holiday/{holiday_id}",
     status_code=status.HTTP_200_OK,
     tags=[emp_tag],
@@ -658,8 +659,8 @@ async def edit_holiday(
                 detail="Holiday not found",
             )
 
-        if name:
-            if holiday_exists(db, current_user.organization_id, name):
+        if name and name != holiday.name:
+            if await holiday_exists(db, current_user.organization_id, name):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Holiday with this name already exists",
@@ -700,6 +701,34 @@ async def edit_holiday(
     except Exception as e:
         logger.exception("traceback error from edit holiday")
         logger.error(f"{e} : error from edit holiday")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get holidays
+@user_router.get(
+    "/get_holidays",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def get_all_holidays(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        holidays = await get_holidays(db, current_user.organization_id)
+        return {
+            "detail": "Data fetched successfully",
+            "data": [holiday.to_dict() for holiday in holidays],
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get holidays")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get holidays")
+        logger.error(f"{e} : error from get holidays")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
