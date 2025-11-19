@@ -24,6 +24,7 @@ from models import (
     LeaveRequest,
     LeaveStatus,
     LeaveType,
+    Holiday,
 )
 from helpers import hash_password, get_service_year
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -755,7 +756,15 @@ async def create_edit_uploaded_files(
 
 
 async def get_leave_requests(
-    db, organization_id, start_date, end_date, leave_status, leave_type, page, per_page
+    db,
+    organization_id,
+    start_date,
+    end_date,
+    leave_status,
+    leave_type,
+    page,
+    per_page,
+    user=None,
 ):
     try:
         leave_requests = (
@@ -763,6 +772,8 @@ async def get_leave_requests(
             .join(Users, LeaveRequest.user_id == Users.id)
             .filter(Users.organization_id == organization_id)
         )
+        if user:
+            leave_requests = leave_requests.filter(LeaveRequest.user_id == user.id)
         if start_date:
             leave_requests = leave_requests.filter(
                 LeaveRequest.start_date >= start_date
@@ -849,6 +860,56 @@ async def create_leave_type(db, organization_id, leave_type_name, leave_type_dur
         db.add(leave_type)
         db.commit()
         return leave_type
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# create holiday
+async def create_holiday(db, organization_id, name, from_date, to_date):
+    try:
+        holiday = Holiday(
+            organization_id=organization_id,
+            name=name,
+            from_date=from_date,
+            to_date=to_date,
+        )
+        db.add(holiday)
+        db.commit()
+        return holiday
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# holiday already exist
+async def holiday_exists(db, organization_id, name):
+    try:
+        holiday = (
+            db.query(Holiday)
+            .filter(
+                Holiday.organization_id == organization_id, Holiday.name.ilike(name)
+            )
+            .first()
+        )
+        return holiday
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# get one holiday by id
+async def get_one_holiday(db, holiday_id, organization_id):
+    try:
+        holiday = (
+            db.query(Holiday)
+            .filter_by(id=holiday_id, organization_id=organization_id)
+            .first()
+        )
+        return holiday
     except Exception as e:
         db.rollback()
         logger.exception("Background task failed")
