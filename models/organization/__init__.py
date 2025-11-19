@@ -67,8 +67,30 @@ class Organization(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     active = Column(Boolean, default=True)
     deleted = Column(Boolean, default=False)
+    holidays = relationship("Holiday", back_populates="organization")
     users = relationship("Users", back_populates="organization")
     leave_types = relationship("LeaveType", back_populates="organization")
+
+
+# holiday model
+class Holiday(Base):
+    __tablename__ = "holiday"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(100))
+    from_date = Column(DateTime)
+    to_date = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    organization_id = Column(String(50), ForeignKey("organization.id"), nullable=True)
+    organization = relationship("Organization", back_populates="holidays")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name.title(),
+            "from_date": self.from_date,
+            "to_date": self.to_date,
+        }
 
 
 # class SideMenu(Base):
