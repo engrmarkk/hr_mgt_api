@@ -767,31 +767,44 @@ async def get_leave_requests(
     user=None,
 ):
     try:
-        leave_requests = (
+        # Base query
+        base_query = (
             db.query(LeaveRequest)
             .join(Users, LeaveRequest.user_id == Users.id)
             .filter(Users.organization_id == organization_id)
         )
+
+        # Filters
         if user:
-            leave_requests = leave_requests.filter(LeaveRequest.user_id == user.id)
+            base_query = base_query.filter(LeaveRequest.user_id == user.id)
         if start_date:
-            leave_requests = leave_requests.filter(
-                LeaveRequest.start_date >= start_date
-            )
+            base_query = base_query.filter(LeaveRequest.start_date >= start_date)
         if end_date:
-            leave_requests = leave_requests.filter(LeaveRequest.end_date <= end_date)
+            base_query = base_query.filter(LeaveRequest.end_date <= end_date)
         if leave_status:
-            leave_requests = leave_requests.filter(
+            base_query = base_query.filter(
                 LeaveRequest.status == LeaveStatus(leave_status)
             )
         if leave_type:
-            leave_requests = leave_requests.filter(
-                LeaveRequest.leave_type_id == leave_type
-            )
-        leave_requests = (
-            leave_requests.offset((page - 1) * per_page).limit(per_page).all()
-        )
-        return leave_requests
+            base_query = base_query.filter(LeaveRequest.leave_type_id == leave_type)
+
+        # Count total items BEFORE pagination
+        total_items = base_query.count()
+
+        # Apply pagination
+        leave_requests = base_query.offset((page - 1) * per_page).limit(per_page).all()
+
+        # Calculate total pages
+        total_pages = (total_items + per_page - 1) // per_page  # Ceiling division
+
+        return {
+            "data": [lr.to_dict() for lr in leave_requests],
+            "page": page,
+            "per_page": per_page,
+            "total_items": total_items,
+            "total_pages": total_pages,
+        }
+
     except Exception as e:
         db.rollback()
         logger.exception("Background task failed")
@@ -910,6 +923,22 @@ async def get_one_holiday(db, holiday_id, organization_id):
             .first()
         )
         return holiday
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# get holidays, order by from_date desc
+async def get_holidays(db, organization_id):
+    try:
+        holidays = (
+            db.query(Holiday)
+            .filter_by(organization_id=organization_id)
+            .order_by(desc(Holiday.from_date))
+            .all()
+        )
+        return holidays
     except Exception as e:
         db.rollback()
         logger.exception("Background task failed")
