@@ -28,4 +28,5 @@ from models.organization import (
     # RoleSubSideMenu,
     Industry,
     Reasons,
+    Holiday,
 )
