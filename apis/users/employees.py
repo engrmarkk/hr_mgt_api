@@ -706,6 +706,38 @@ async def edit_holiday(
         )
 
 
+# delete one holiday
+@user_router.delete(
+    "/delete_holiday/{holiday_id}",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def delete_holiday(
+    holiday_id: str,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        holiday = await get_one_holiday(db, holiday_id, current_user.organization_id)
+        if not holiday:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Holiday not found",
+            )
+        db.delete(holiday)
+        db.commit()
+        return {"detail": "Holiday deleted successfully"}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from delete holiday")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from delete holiday")
+        logger.error(f"{e} : error from delete holiday")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
 # get holidays
 @user_router.get(
     "/get_holidays",
