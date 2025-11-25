@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_serializer, HttpUrl, validator
+from pydantic import BaseModel, EmailStr, field_serializer, HttpUrl, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -129,7 +129,7 @@ class LeaveRequestSchema(BaseModel):
     document_url: Optional[str] = None
     document_name: Optional[str] = None
 
-    @validator("start_date", "end_date")
+    @field_validator("start_date", "end_date")
     def validate_date_format(cls, v):
         if v:
             try:
@@ -138,7 +138,7 @@ class LeaveRequestSchema(BaseModel):
                 raise ValueError("Date must be in YYYY-MM-DD format")
         return v
 
-    @validator("end_date")
+    @field_validator("end_date")
     def validate_end_date(cls, v, values):
         if v and "start_date" in values and values["start_date"]:
             start_date = datetime.strptime(values["start_date"], "%Y-%m-%d")
