@@ -402,8 +402,8 @@ class WorkHours(Base):
     def to_dict(self):
         return {
             "id": self.id,
-            "start_time": format_time(self.start_time),
-            "end_time": format_time(self.end_time),
+            "start_time": self.start_time,
+            "end_time": self.end_time,
         }
 
 
