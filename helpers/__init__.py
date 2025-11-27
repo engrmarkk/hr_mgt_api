@@ -12,10 +12,15 @@ from io import BytesIO
 import hmac
 import hashlib
 import time
+import requests
 
 
 def format_datetime(date_time):
     return date_time.strftime("%d-%b-%Y")
+
+
+def format_time(t):
+    return t.strftime("%I:%M %p") if t else None
 
 
 # generate token
@@ -144,4 +149,38 @@ def generate_signature(params_to_sign, api_secret):
         return signature
     except Exception as e:
         logger.error(f"{e}: error from generate_signature")
+        return None
+
+
+def get_country_by_ip_address(ip_address):
+    # https://ipapi.co/102.88.108.57/json
+    try:
+        response = requests.get(f"http://ip-api.com/json/{ip_address}")
+        res = response.json()
+        print(res)
+        country = res.get("country", "Nigeria")
+        city = res.get("city", "Lagos")
+        return f"{city}, {country}"
+    except Exception as e:
+        logger.error(f"{e}: error from get_country_by_ip_address")
+        return None
+
+
+def get_ip_address(request):
+    # request to this "https://api.ipify.org?format=json"
+    try:
+        # response = requests.get("https://api.ipify.org?format=json")
+        # return response.json().get("ip")
+        client_ip = (
+            (
+                request.headers.get("X-Forwarded-For")
+                or request.headers.get("X-Real-IP")
+                or request.client.host
+            )
+            .split(",")[0]
+            .strip()
+        )
+        return client_ip
+    except Exception as e:
+        logger.error(f"{e}: error from get_ip_address")
         return None
