@@ -19,6 +19,8 @@ from models.users import (
     LeaveType,
     LeaveStatus,
     LeaveRequest,
+    WorkHours,
+    Attendance,
 )
 from models.organization import (
     Organization,
