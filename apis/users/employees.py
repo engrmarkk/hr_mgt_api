@@ -28,6 +28,12 @@ from cruds import (
     holiday_exists,
     get_one_holiday,
     get_holidays,
+    get_work_hours,
+    set_work_hours,
+    get_current_clock_in,
+    has_clocked_out_today,
+    create_attendance,
+    get_my_attendance,
 )
 from helpers import (
     validate_phone_number,
@@ -35,6 +41,8 @@ from helpers import (
     hash_password,
     verify_password,
     validate_correct_email,
+    get_ip_address,
+    get_country_by_ip_address,
 )
 from schemas import CreateEmployeeSchema, LeaveRequestSchema
 from typing import List
@@ -738,6 +746,7 @@ async def delete_holiday(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
 
+
 # get holidays
 @user_router.get(
     "/get_holidays",
@@ -761,6 +770,207 @@ async def get_all_holidays(
     except Exception as e:
         logger.exception("traceback error from get holidays")
         logger.error(f"{e} : error from get holidays")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get work hours
+@user_router.get(
+    "/get_work_hours",
+    status_code=status.HTTP_200_OK,
+    tags=[emp_tag],
+)
+async def get_all_work_hours(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        work_hours = await get_work_hours(db, current_user.organization_id)
+        return {
+            "detail": "Data fetched successfully",
+            "data": work_hours.to_dict() if work_hours else {},
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get work hours")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get work hours")
+        logger.error(f"{e} : error from get work hours")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# set work hours
+@user_router.post("/work_hours", status_code=status.HTTP_201_CREATED, tags=[emp_tag])
+async def set_workhours(
+    request: Request,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = await request.json()
+        start_time = data.get("start_time")
+        end_time = data.get("end_time")
+
+        if not start_time or not end_time:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required fields",
+            )
+
+        # convert start and end time to time
+        start_time = datetime.strptime(start_time, "%H:%M").time()
+        end_time = datetime.strptime(end_time, "%H:%M").time()
+
+        work_hours = await set_work_hours(
+            db, current_user.organization_id, start_time, end_time
+        )
+        return {
+            "detail": "Work hours set successfully",
+            "data": work_hours.to_dict(),
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from set work hours")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from set work hours")
+        logger.error(f"{e} : error from set work hours")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# current attendance
+@user_router.get("/current_attendance", status_code=status.HTTP_200_OK, tags=[emp_tag])
+async def get_current_attendance(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        attend = await get_current_clock_in(db, current_user.id)
+        return {
+            "detail": "Data fetched successfully",
+            "data": attend.to_dict() if attend else {},
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get current attendance")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get current attendance")
+        logger.error(f"{e} : error from get current attendance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# attendance, clock in and clock out
+@user_router.post(
+    "/attendance/{action}", status_code=status.HTTP_201_CREATED, tags=[emp_tag]
+)
+async def set_attendance(
+    request: Request,
+    action: str,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        if action not in ["clock_in", "clock_out"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid action",
+            )
+        data = await request.json()
+        note = data.get("note")
+        client_ip = get_ip_address(request)
+        logger.info(f"client_ip: {client_ip}")
+        location = get_country_by_ip_address(client_ip)
+
+        if action == "clock_in" and await get_current_clock_in(db, current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You have already clocked in today",
+            )
+
+        if await has_clocked_out_today(db, current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You have already clocked out today",
+            )
+
+        attendance = await create_attendance(
+            db, current_user.id, note, action, location, current_user.organization_id
+        )
+        return {
+            "detail": "Attendance created successfully",
+            "data": {},
+        }
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from attendance")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from attendance")
+        logger.error(f"{e} : error from attendance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get mt attandances
+@user_router.get("/attendances", status_code=status.HTTP_200_OK, tags=[emp_tag])
+async def get_attendances(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    page: int = Query(1, gt=0),
+    per_page: int = Query(10, gt=0),
+    start_date: str = None,
+    end_date: str = None,
+):
+    try:
+        attendances = await get_my_attendance(
+            db, current_user.id, page, per_page, start_date, end_date
+        )
+        return {"detail": "Data fetched successfully", **attendances}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get attendance")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get attendance")
+        logger.error(f"{e} : error from get attendance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+@user_router.get(
+    "/employee_attendances", status_code=status.HTTP_200_OK, tags=[emp_tag]
+)
+async def employee_attendances(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    page: int = Query(1, gt=0),
+    per_page: int = Query(10, gt=0),
+    start_date: str = None,
+    end_date: str = None,
+):
+    try:
+        attendances = await get_my_attendance(
+            db, current_user.id, page, per_page, start_date, end_date, True
+        )
+        return {"detail": "Data fetched successfully", **attendances}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from employee attendance")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from employee attendance")
+        logger.error(f"{e} : error from employee attendance")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
