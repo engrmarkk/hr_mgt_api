@@ -25,10 +25,12 @@ from models import (
     LeaveStatus,
     LeaveType,
     Holiday,
+    WorkHours,
+    Attendance,
 )
 from helpers import hash_password, get_service_year
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 # from celery_config.utils.cel_workers import send_mail
 from fastapi import Request, HTTPException
@@ -942,4 +944,169 @@ async def get_holidays(db, organization_id):
     except Exception as e:
         db.rollback()
         logger.exception("Background task failed")
+        return None
+
+
+async def get_work_hours(db, organization_id):
+    try:
+        work_hours = (
+            db.query(WorkHours).filter_by(organization_id=organization_id).first()
+        )
+        return work_hours
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+async def set_work_hours(db, organization_id, start_time, end_time):
+    try:
+        work_hrs = await get_work_hours(db, organization_id)
+        if work_hrs:
+            work_hrs.start_time = start_time
+            work_hrs.end_time = end_time
+            db.commit()
+            return work_hrs
+        work_hours = WorkHours(
+            organization_id=organization_id,
+            start_time=start_time,
+            end_time=end_time,
+        )
+        db.add(work_hours)
+        db.commit()
+        return work_hours
+    except Exception as e:
+        db.rollback()
+        logger.exception("Background task failed")
+        return None
+
+
+# get current clock in record (so that the user can clock out) for that day
+async def get_current_clock_in(db, user_id):
+    try:
+        attendance = (
+            db.query(Attendance)
+            .filter(
+                Attendance.user_id == user_id,
+                func.date(Attendance.created_at) == date.today(),
+                Attendance.check_in.isnot(None),
+                Attendance.check_out.is_(None),
+            )
+            .first()
+        )
+        return attendance
+    except Exception as e:
+        db.rollback()
+        logger.exception("Get current clock_in failed")
+        return None
+
+
+# create attendace
+async def create_attendance(db, user_id, note, action, location, organization_id):
+    try:
+        attendance = await get_current_clock_in(db, user_id)
+        if attendance:
+            if action == "clock_in":
+                attendance.check_in = datetime.now().time()
+                attendance.clock_in_location = location
+            else:
+                attendance.check_out = datetime.now().time()
+                attendance.clock_out_location = location
+            db.commit()
+            return attendance
+        wrk_hrs = await get_work_hours(db, organization_id)
+        attendance = Attendance(
+            user_id=user_id,
+            note=note,
+            check_in=datetime.now().time() if action == "clock_in" else None,
+            check_out=datetime.now().time() if action == "clock_out" else None,
+            clock_in_location=location if action == "clock_in" else None,
+            clock_out_location=location if action == "clock_out" else None,
+            start_time=wrk_hrs.start_time,
+            end_time=wrk_hrs.end_time,
+        )
+        db.add(attendance)
+        db.commit()
+        return attendance
+    except Exception as e:
+        db.rollback()
+        logger.exception("Create attendance failed")
+        return None
+
+
+# has clocked out today already
+async def has_clocked_out_today(db, user_id):
+    try:
+        attendance = (
+            db.query(Attendance)
+            .filter(
+                Attendance.user_id == user_id,
+                func.date(Attendance.created_at) == date.today(),
+                Attendance.check_in.isnot(None),
+                Attendance.check_out.isnot(None),
+            )
+            .first()
+        )
+        return attendance
+    except Exception as e:
+        db.rollback()
+        logger.exception("Has clocked out today failed")
+        return None
+
+
+# has attendace today already
+async def has_attendance_today(db, user_id):
+    try:
+        attendance = (
+            db.query(Attendance)
+            .filter(
+                Attendance.user_id == user_id,
+                func.date(Attendance.created_at) == date.today(),
+            )
+            .first()
+        )
+        return attendance
+    except Exception as e:
+        db.rollback()
+        logger.exception("Has attendance today failed")
+        return None
+
+
+# get my attendace and order by desc created_at
+async def get_my_attendance(
+    db, user_id, page, per_page, start_date=None, end_date=None, hr=False
+):
+    try:
+        query = db.query(Attendance).filter(Attendance.user_id == user_id)
+
+        if start_date:
+            query = query.filter(Attendance.created_at >= start_date)
+        if end_date:
+            query = query.filter(Attendance.created_at <= end_date)
+
+        total_items = query.count()
+        total_pages = (total_items + per_page - 1) // per_page
+
+        attendance_records = (
+            query.order_by(desc(Attendance.created_at))
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+
+        attendance_dicts = [record.employee_dict(hr) for record in attendance_records]
+
+        response = {
+            "data": attendance_dicts,
+            "page": page,
+            "per_page": per_page,
+            "total_items": total_items,
+            "total_pages": total_pages,
+        }
+
+        return response
+
+    except Exception as e:
+        db.rollback()
+        logger.exception("Get my attendance failed")
         return None
