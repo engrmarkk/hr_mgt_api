@@ -8,11 +8,12 @@ from sqlalchemy import (
     DateTime,
     Float,
     Text,
+    Time,
     Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.orm import relationship
-from helpers import generate_uuid, format_datetime
-from datetime import datetime, timedelta
+from helpers import generate_uuid, format_datetime, format_time
+from datetime import datetime, timedelta, time
 from constants import OTP_EXPIRES
 from enum import Enum
 
@@ -143,6 +144,7 @@ class Users(Base):
     bank_details = relationship("BankDetails", backref="user", uselist=False)
     compensation = relationship("Compensation", backref="user", uselist=True)
     leave_requests = relationship("LeaveRequest", backref="user", uselist=True)
+    attendances = relationship("Attendance", backref="user", uselist=True)
 
     def to_dict(self):
         return {
@@ -384,3 +386,164 @@ class LeaveRequest(Base):
             "document_name": self.document_name,
             "status": self.status.value,
         }
+
+
+# work hours
+class WorkHours(Base):
+    __tablename__ = "work_hours"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    start_time = Column(Time)
+    end_time = Column(Time)
+    organization_id = Column(String(50), ForeignKey("organization.id"))
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    organization = relationship("Organization", back_populates="work_hours")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "start_time": format_time(self.start_time),
+            "end_time": format_time(self.end_time),
+        }
+
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    user_id = Column(String(50), ForeignKey("users.id"))
+    check_in = Column(Time)
+    check_out = Column(Time)
+    clock_in_location = Column(String(100))
+    clock_out_location = Column(String(100))
+    start_time = Column(Time)
+    end_time = Column(Time)
+    note = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "check_in": format_time(self.check_in),
+            "check_out": format_time(self.check_out),
+            "start_time": format_time(self.start_time),
+            "end_time": format_time(self.end_time),
+            "note": self.note,
+        }
+
+    def employee_dict(self, hr=False):
+        overtime = timedelta(0)
+        deficit = timedelta(0)
+        work_schedule = timedelta(0)
+        logged_time = timedelta(0)
+
+        base_date = datetime.today().date()
+        current_time = datetime.now().time()
+
+        # Calculate work schedule (scheduled hours)
+        if self.start_time and self.end_time:
+            start_dt = datetime.combine(base_date, self.start_time)
+            end_dt = datetime.combine(base_date, self.end_time)
+
+            # Handle overnight shifts
+            if end_dt < start_dt:
+                end_dt += timedelta(days=1)
+
+            work_schedule = end_dt - start_dt
+
+        # Calculate logged time (actual hours worked)
+        if self.check_in:
+            check_in_dt = datetime.combine(base_date, self.check_in)
+
+            if self.check_out:
+                # If checked out: logged_time = check_out - check_in
+                check_out_dt = datetime.combine(base_date, self.check_out)
+                if check_out_dt < check_in_dt:
+                    check_out_dt += timedelta(days=1)
+                logged_time = check_out_dt - check_in_dt
+            else:
+                # If still working: logged_time = min(current_time, end_time) - check_in
+                current_dt = datetime.combine(base_date, current_time)
+
+                if self.end_time:
+                    end_dt = datetime.combine(base_date, self.end_time)
+                    if end_dt < check_in_dt:
+                        end_dt += timedelta(days=1)
+
+                    # Use whichever is earlier: current time or scheduled end time
+                    end_reference = min(current_dt, end_dt)
+                else:
+                    # If no end_time, just use current time
+                    end_reference = current_dt
+
+                if end_reference < check_in_dt:
+                    end_reference += timedelta(days=1)
+
+                logged_time = end_reference - check_in_dt
+
+        # Calculate deficit for late clock-in (even if no check_out yet)
+        if self.check_in and self.start_time:
+            check_in_dt = datetime.combine(base_date, self.check_in)
+            start_dt = datetime.combine(base_date, self.start_time)
+
+            if check_in_dt > start_dt:
+                deficit = check_in_dt - start_dt
+
+        # Calculate overtime and additional deficit only if checked out
+        if self.check_in and self.check_out and self.start_time and self.end_time:
+            check_in_dt = datetime.combine(base_date, self.check_in)
+            check_out_dt = datetime.combine(base_date, self.check_out)
+            start_dt = datetime.combine(base_date, self.start_time)
+            end_dt = datetime.combine(base_date, self.end_time)
+
+            # Handle overnight shifts for comparison
+            if check_out_dt < check_in_dt:
+                check_out_dt += timedelta(days=1)
+            if end_dt < start_dt:
+                end_dt += timedelta(days=1)
+
+            # Overtime: worked after scheduled end time
+            if check_out_dt > end_dt:
+                overtime = check_out_dt - end_dt
+
+            # Additional deficit for early departure
+            if check_out_dt < end_dt:
+                deficit += end_dt - check_out_dt
+
+        # Format timedelta to human-readable format
+        def format_timedelta(td):
+            if td == timedelta(0):
+                return "0h 0m"
+
+            total_seconds = int(td.total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+
+            return f"{hours}h {minutes}m"
+
+        attend_dict = {
+            "id": self.id,
+            "check_in": format_time(self.check_in) if self.check_in else None,
+            "check_out": format_time(self.check_out) if self.check_out else None,
+            "clock_in_location": self.clock_in_location,
+            "clock_out_location": self.clock_out_location,
+            "start_time": format_time(self.start_time) if self.start_time else None,
+            "end_time": format_time(self.end_time) if self.end_time else None,
+            "work_schedule": format_timedelta(work_schedule),  # Scheduled hours
+            "logged_time": format_timedelta(logged_time),  # Actual hours worked
+            "note": self.note,
+            "overtime": format_timedelta(overtime),
+            "deficit": format_timedelta(deficit),
+            "created_at": format_datetime(self.created_at),
+            "updated_at": format_datetime(self.updated_at),
+        }
+
+        if hr:
+            attend_dict["user"] = {
+                "id": self.user_id,
+                "first_name": self.user.first_name,
+                "last_name": self.user.last_name,
+                "email": self.user.email,
+            }
+
+        return attend_dict
