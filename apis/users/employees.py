@@ -34,6 +34,7 @@ from cruds import (
     has_clocked_out_today,
     create_attendance,
     get_my_attendance,
+    get_compensation_paginated,
 )
 from helpers import (
     validate_phone_number,
@@ -971,6 +972,33 @@ async def employee_attendances(
     except Exception as e:
         logger.exception("traceback error from employee attendance")
         logger.error(f"{e} : error from employee attendance")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get payroll (employee name, employee id, Total comp, Salary, Actual, Recurring, One-off)
+@user_router.get("/employee_payroll", status_code=status.HTTP_200_OK, tags=[emp_tag])
+async def employee_payroll(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    page: int = Query(1, gt=0),
+    per_page: int = Query(10, gt=0),
+    start_date: str = None,
+    end_date: str = None,
+):
+    try:
+        res = await get_compensation_paginated(
+            db, page, per_page, current_user.organization_id
+        )
+        return {"detail": "Data fetched successfully", **res}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from employee payroll")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from employee payroll")
+        logger.error(f"{e} : error from employee payroll")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
