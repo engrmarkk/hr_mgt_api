@@ -35,7 +35,7 @@ from datetime import datetime, timedelta, date
 # from celery_config.utils.cel_workers import send_mail
 from fastapi import Request, HTTPException
 from logger import logger
-from sqlalchemy import func, desc, asc
+from sqlalchemy import func, desc, asc, case
 from helpers import validate_phone_number, validate_correct_email
 
 
@@ -1110,3 +1110,140 @@ async def get_my_attendance(
         db.rollback()
         logger.exception("Get my attendance failed")
         return None
+
+
+async def get_compensation_paginated(
+    db, page: int, per_page: int, organization_id: str
+):
+    """
+    Get paginated compensation matrix filtered by organization_id
+    Using LEFT JOIN for employment details
+    """
+
+    # Step 1: Get all distinct compensation types for this organization
+    type_subquery = (
+        db.query(Compensation.compensation_type)
+        .join(Users, Users.id == Compensation.user_id)
+        .filter(
+            Compensation.compensation_type.isnot(None),
+            Users.organization_id == organization_id,
+        )
+        .distinct()
+        .subquery()
+    )
+
+    # Step 2: Get users count for pagination
+    users_count = (
+        db.query(func.count(Users.id))
+        .filter(
+            Users.organization_id == organization_id,
+            Users.id.in_(db.query(Compensation.user_id).distinct()),
+        )
+        .scalar()
+    )
+
+    if not users_count:
+        return {
+            "data": [],
+            "types": [],
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": 0,
+                "pages": 0,
+                "has_next": False,
+                "has_prev": False,
+            },
+        }
+
+    # Step 3: Get compensation types
+    types_result = db.query(type_subquery.c.compensation_type).all()
+    compensation_types = [t[0] for t in types_result]
+
+    # Step 4: Build CASE statements for each compensation type
+    case_statements = []
+    for comp_type in compensation_types:
+        case_stmt = func.sum(
+            case(
+                (Compensation.compensation_type == comp_type, Compensation.amount),
+                else_=0,
+            )
+        ).label(comp_type)
+        case_statements.append(case_stmt)
+
+    # Add total amount
+    case_statements.append(func.sum(Compensation.amount).label("total_amount"))
+
+    # Step 5: Main query with organization filter - Using LEFT OUTER JOIN
+    query = (
+        db.query(
+            Compensation.user_id,
+            Users.first_name,
+            Users.last_name,
+            Users.email,
+            EmploymentDetails.employment_id,
+            *case_statements,
+        )
+        .join(Users, Users.id == Compensation.user_id)
+        .outerjoin(
+            EmploymentDetails, EmploymentDetails.user_id == Users.id
+        )  # LEFT JOIN
+        .filter(Users.organization_id == organization_id)
+        .group_by(
+            Compensation.user_id,
+            Users.first_name,
+            Users.last_name,
+            Users.email,
+            EmploymentDetails.employment_id,
+            Users.date_joined,
+        )
+        .order_by(desc(Users.date_joined))
+    )
+
+    # Step 6: Apply pagination
+    offset = (page - 1) * per_page
+    results = query.offset(offset).limit(per_page).all()
+
+    # Step 7: Format results
+    data = []
+    for row in results:
+        user_id = row[0]
+        first_name = row[1]
+        last_name = row[2]
+        email = row[3]
+        employment_id = row[4]  # Could be None if LEFT JOIN doesn't find a match
+        full_name = (
+            f"{first_name} {last_name}".strip() if first_name or last_name else ""
+        )
+
+        compensations = {}
+
+        # Compensation types start at index 5
+        for i, comp_type in enumerate(compensation_types):
+            amount = row[i + 5] or 0
+            compensations[comp_type] = float(amount)
+
+        total = float(row[-1] or 0)
+
+        data.append(
+            {
+                "user_id": user_id,
+                "full_name": full_name,
+                "email": email,
+                "employment_id": employment_id,
+                "compensations": compensations,
+                "total": total,
+            }
+        )
+
+    # Step 8: Calculate pagination info
+    total_pages = (users_count + per_page - 1) // per_page if users_count > 0 else 0
+
+    return {
+        "data": data,
+        "types": compensation_types,
+        "page": page,
+        "per_page": per_page,
+        "total": users_count,
+        "pages": total_pages,
+    }
