@@ -1,3 +1,5 @@
+import json
+
 from models import (
     Users,
     UserSessions,
@@ -37,6 +39,7 @@ from fastapi import Request, HTTPException
 from logger import logger
 from sqlalchemy import func, desc, asc, case
 from helpers import validate_phone_number, validate_correct_email
+from connections import redis_conn
 
 
 # if email exists (fastapi)
@@ -1238,6 +1241,7 @@ async def get_compensation_paginated(
 
     # Step 8: Calculate pagination info
     total_pages = (users_count + per_page - 1) // per_page if users_count > 0 else 0
+    redis_conn.set("compensation_types", json.dumps(compensation_types))
 
     return {
         "data": data,
@@ -1247,3 +1251,84 @@ async def get_compensation_paginated(
         "total": users_count,
         "pages": total_pages,
     }
+
+
+async def get_user_pay_roll(db, user_id):
+    try:
+        # 1. Get compensation types from Redis
+        comp_cached = redis_conn.get("compensation_types")
+        if comp_cached is None:
+            return []
+
+        compensations = json.loads(comp_cached)
+        if not compensations:
+            return []
+
+        # 2. Query user's compensations
+        users_comps = (
+            db.query(Compensation)
+            .filter_by(user_id=user_id)
+            .order_by(Compensation.compensation_type.asc())
+            .all()
+        )
+
+        if not users_comps:
+            # Return zero entries for all compensation types
+            return [{"compensation_type": comp, "amount": 0} for comp in compensations]
+
+        # 3. Convert to dict and build lookup set
+        comp_list = [comp.to_dict() for comp in users_comps]
+
+        existing_types = {comp.get("compensation_type") for comp in comp_list}
+        comp_list.extend(
+            [
+                {"compensation_type": comp, "amount": 0}
+                for comp in compensations
+                if comp not in existing_types
+            ]
+        )
+
+        comp_list.sort(key=lambda x: list(x.keys())[0])
+
+        return comp_list
+
+    except Exception as e:
+        logger.exception(f"Error in get_user_pay_roll for user {user_id}: {e}")
+        return []
+
+
+async def get_attendance_date_range(db, user_id):
+    """Get first and last attendance dates for a user and total duration"""
+    # Get first attendance date
+    first_attendance = (
+        db.query(Attendance.created_at)
+        .filter_by(user_id=user_id)
+        .order_by(Attendance.created_at.asc())
+        .first()
+    )
+
+    # Get last attendance date
+    last_attendance = (
+        db.query(Attendance.created_at)
+        .filter_by(user_id=user_id)
+        .order_by(Attendance.created_at.desc())
+        .first()
+    )
+
+    if not first_attendance or not last_attendance:
+        return {"duration": "-", "total_duration": 0}
+
+    first_date = first_attendance[0].date() if first_attendance[0] else None
+    last_date = last_attendance[0].date() if last_attendance[0] else None
+
+    if first_date and last_date:
+        total_duration = (last_date - first_date).days + 1  # Inclusive
+    else:
+        total_duration = 0
+
+    return {"duration": {first_date} - {last_date}, "total_duration": total_duration}
+
+
+# get user by user_id
+async def get_user_by_id(db, user_id):
+    return db.query(Users).filter_by(id=user_id).first()
