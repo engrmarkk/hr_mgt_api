@@ -21,6 +21,9 @@ from cruds import (
     create_compensation,
     create_edit_uploaded_files,
     get_leave_requests,
+    get_user_pay_roll,
+    get_attendance_date_range,
+    get_user_by_id,
     get_one_leave_type,
     save_leave_request,
     get_all_leave_types,
@@ -992,6 +995,60 @@ async def employee_payroll(
             db, page, per_page, current_user.organization_id
         )
         return {"detail": "Data fetched successfully", **res}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from employee payroll")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from employee payroll")
+        logger.error(f"{e} : error from employee payroll")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# payroll detail
+@user_router.get(
+    "/payroll_detail/{user_id}", status_code=status.HTTP_200_OK, tags=[emp_tag]
+)
+async def payroll_detail(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    try:
+        user = await get_user_by_id(db, user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+        pay_detail = await get_user_pay_roll(db, user_id)
+        attend = await get_attendance_date_range(db, user_id)
+        user_info = {
+            "name": f"{user.last_name} {user.first_name}",
+            "employment_details": (
+                {
+                    "job_title": user.employment_details.job_title,
+                    "join_date": user.employment_details.join_date,
+                    "employment_status": user.employment_details.employment_status,
+                    "employment_type": user.employment_details.employment_type,
+                }
+                if user.employment_details
+                else {}
+            ),
+        }
+
+        return {
+            "pay_detail": pay_detail,
+            "attendance": attend,
+            "user_info": user_info,
+            "bank_details": (
+                user.bank_details.to_dict()
+                if user.bank_details
+                else {"bank_name": "", "account_number": "", "account_name": ""}
+            ),
+        }
     except HTTPException as http_exc:
         # Log the HTTPException if needed
         logger.exception("traceback error from employee payroll")
