@@ -272,8 +272,16 @@ class BankDetails(Base):
     __tablename__ = "bank_details"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     user_id = Column(String(50), ForeignKey("users.id"))
-    bank_name = Column(String(50), nullable=True)
+    bank_name = Column(String(100), nullable=True)
     account_number = Column(String(50), nullable=True)
+    account_name = Column(String(100))
+
+    def to_dict(self):
+        return {
+            "bank_name": self.bank_name or "",
+            "account_number": self.account_number or "",
+            "account_name": self.account_name or "",
+        }
 
 
 class UserSessions(Base):
