@@ -29,6 +29,10 @@ from models import (
     Holiday,
     WorkHours,
     Attendance,
+    JobPosting,
+    AppliedCandidates,
+    JobStages,
+    Department,
 )
 from helpers import hash_password, get_service_year
 from constants import SESSION_EXPIRES, DEFAULT_PASSWORD
@@ -1332,3 +1336,163 @@ async def get_attendance_date_range(db, user_id):
 # get user by user_id
 async def get_user_by_id(db, user_id):
     return db.query(Users).filter_by(id=user_id).first()
+
+
+# create job postings
+async def create_job_postings(
+    db,
+    title,
+    description,
+    location,
+    job_type,
+    quantity,
+    department_id,
+    organization_id,
+    closing_date,
+    min_salary=0,
+    max_salary=0,
+):
+    job_post = JobPosting(
+        title=title,
+        description=description,
+        location=location,
+        job_type=job_type,
+        quantity=quantity,
+        department_id=department_id,
+        organization_id=organization_id,
+        closing_date=closing_date,
+        min_salary=min_salary,
+        max_salary=max_salary,
+    )
+    db.add(job_post)
+    db.commit()
+    return job_post
+
+
+# edit job postings
+async def edit_job_postings(
+    db,
+    job_post_id,
+    title,
+    description,
+    location,
+    job_type,
+    quantity,
+    department_id,
+    organization_id,
+    closing_date,
+    min_salary,
+    max_salary,
+    status,
+):
+    job_post = await get_one_job_posting(db, job_post_id, organization_id)
+    job_post.title = title or job_post.title
+    job_post.description = description or job_post.description
+    job_post.location = location or job_post.location
+    job_post.job_type = job_type or job_post.job_type
+    job_post.quantity = quantity or job_post.quantity
+    if min_salary:
+        job_post.min_salary = min_salary
+    if max_salary:
+        job_post.max_salary = max_salary
+    job_post.status = status or job_post.status
+    job_post.department_id = department_id or job_post.department_id
+    if closing_date:
+        job_post.closing_date = closing_date
+    db.add(job_post)
+    db.commit()
+    return job_post
+
+
+# get one job posting
+async def get_one_job_posting(db, job_post_id, organization_id):
+    return (
+        db.query(JobPosting)
+        .filter_by(id=job_post_id, organization_id=organization_id)
+        .first()
+    )
+
+
+# get all job posts
+async def get_job_postings(
+    db,
+    status,
+    job_type,
+    department_id,
+    organization_id,
+    page,
+    per_page,
+    start_date,
+    end_date,
+):
+    try:
+        query = db.query(JobPosting).filter_by(organization_id=organization_id)
+        if status:
+            query = query.filter_by(status=status)
+        if job_type:
+            query = query.filter_by(job_type=job_type)
+        if department_id:
+            query = query.filter_by(department_id=department_id)
+        if start_date:
+            query = query.filter(JobPosting.created_at >= start_date)
+        if end_date:
+            query = query.filter(JobPosting.created_at <= end_date)
+
+        total_count = query.count()
+
+        offset = (page - 1) * per_page
+        total_pages = (total_count + per_page - 1) // per_page
+
+        job_postings = (
+            query.order_by(desc(JobPosting.created_at))
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+
+        return {
+            "postings": [job_post.to_dict() for job_post in job_postings],
+            "total_items": total_count,
+            "total_pages": total_pages,
+            "page": page,
+            "per_page": per_page,
+        }
+    except Exception as e:
+        logger.exception(f"Error in get_job_postings: {e}")
+        return {
+            "postings": [],
+            "total_items": 0,
+            "total_pages": 0,
+            "page": 0,
+            "per_page": 0,
+        }
+
+
+# get departments
+async def get_departments(db, organization_id):
+    result = (
+        db.query(Department)
+        .filter_by(organization_id=organization_id)
+        .order_by(Department.name.asc())
+        .all()
+    )
+    return [department.to_dict() for department in result]
+
+
+# department exist
+async def department_exists(db, name, organization_id):
+    return (
+        db.query(Department)
+        .filter(
+            Department.name.ilike(name), Department.organization_id == organization_id
+        )
+        .first()
+    )
+
+
+# create one department
+async def create_one_dpt(db, organization_id, name):
+    dpt = Department(name=name, organization_id=organization_id)
+    db.add(dpt)
+    db.commit()
+    return dpt
