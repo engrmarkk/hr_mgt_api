@@ -146,3 +146,22 @@ class LeaveRequestSchema(BaseModel):
             if start_date > end_date:
                 raise ValueError("Start date must be before end date")
         return v
+
+
+class CreateJobPostingSchema(BaseModel):
+    title: str
+    description: str
+    location: str
+    job_type: str
+    quantity: int
+    department_id: str
+    closing_date: Optional[datetime] = None
+    min_salary: Optional[float] = 0
+    max_salary: Optional[float] = 0
+
+    @field_validator("max_salary")
+    def check_salary(cls, v, info):
+        min_salary = info.data.get("min_salary", 0)
+        if v and v < min_salary:
+            raise ValueError("max_salary must be greater than min_salary")
+        return v
