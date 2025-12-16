@@ -110,8 +110,16 @@ class Department(Base):
     __tablename__ = "departments"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     name = Column(String(50), unique=True, nullable=False)
+    organization_id = Column(String(50), ForeignKey("organization.id"), nullable=False)
 
     users = relationship("Users", backref="department")
+    job_postings = relationship("JobPosting", backref="department")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+        }
 
 
 class Users(Base):
@@ -555,3 +563,75 @@ class Attendance(Base):
             }
 
         return attend_dict
+
+
+class JobStages(Base):
+    __tablename__ = "job_stages"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    name = Column(String(50), nullable=False)
+    applied_candidates = relationship("AppliedCandidates", backref="job_stage")
+
+
+class JobPosting(Base):
+    __tablename__ = "job_posting"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    title = Column(String(50), nullable=False)
+    description = Column(Text)
+    location = Column(String(150), nullable=False)
+    job_type = Column(String(50), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False, default=1)
+    applied_count = Column(Integer, nullable=False, default=0)
+    min_salary = Column(Float, nullable=True)
+    max_salary = Column(Float, nullable=True)
+    status = Column(String(50), nullable=False, default="active", index=True)
+    department_id = Column(
+        String(50), ForeignKey("departments.id"), nullable=False, index=True
+    )
+    organization_id = Column(
+        String(50), ForeignKey("organization.id"), nullable=False, index=True
+    )
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    closing_date = Column(DateTime, nullable=True)
+    applied_candidates = relationship(
+        "AppliedCandidates", backref="job_posting", cascade="all, delete-orphan"
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title.title(),
+            "description": self.description,
+            "location": self.location.title(),
+            "job_type": self.job_type,
+            "quantity": self.quantity,
+            "applied_count": self.applied_count,
+            "min_salary": self.min_salary,
+            "max_salary": self.max_salary,
+            "status": self.status,
+            "department_id": self.department_id,
+            "department": self.department.name.title(),
+            "created_at": format_datetime(self.created_at),
+            "closing_date": format_datetime(self.closing_date),
+        }
+
+
+class AppliedCandidates(Base):
+    __tablename__ = "applied_candidates"
+    id = Column(String(50), primary_key=True, default=generate_uuid)
+    job_posting_id = Column(
+        String(50), ForeignKey("job_posting.id"), nullable=False, index=True
+    )
+    full_name = Column(String(150), nullable=False)
+    email = Column(String(150), nullable=False)
+    phone_number = Column(String(150), nullable=False)
+    resume = Column(String(200), nullable=False)
+    cover_letter = Column(Text, nullable=False)
+    job_stage_id = Column(
+        String(50), ForeignKey("job_stages.id"), nullable=False, index=True
+    )
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    deleted = Column(Boolean, default=False)
+    user_agent = Column(Text, nullable=False)
+    ip_address = Column(String(50), nullable=False)
