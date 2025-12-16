@@ -21,6 +21,10 @@ from models.users import (
     LeaveRequest,
     WorkHours,
     Attendance,
+    JobPosting,
+    AppliedCandidates,
+    JobStages,
+    Department,
 )
 from models.organization import (
     Organization,
