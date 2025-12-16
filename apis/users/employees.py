@@ -27,6 +27,7 @@ from cruds import (
     get_one_leave_type,
     save_leave_request,
     get_all_leave_types,
+    get_departments,
     create_holiday,
     holiday_exists,
     get_one_holiday,
@@ -1056,6 +1057,27 @@ async def payroll_detail(
     except Exception as e:
         logger.exception("traceback error from employee payroll")
         logger.error(f"{e} : error from employee payroll")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# get department
+@user_router.get("/get_departments", status_code=status.HTTP_200_OK, tags=[emp_tag])
+async def fetch_departments(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        res = await get_departments(db, current_user.organization_id)
+        return {"detail": "Data fetched successfully", "data": res}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from fetch_departments")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from fetch_departments")
+        logger.error(f"{e} : error from fetch_departments")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
