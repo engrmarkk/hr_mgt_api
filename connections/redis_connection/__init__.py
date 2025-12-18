@@ -28,5 +28,20 @@ class RedisConnection:
     def pipeline(self):
         return self.connection.pipeline()
 
+    def partial_delete(self, key):
+        pattern = f"{key}*"
+        deleted_count = 0
+
+        cursor = "0"
+        while cursor != 0:
+            cursor, keys = self.connection.scan(
+                cursor=cursor, match=pattern, count=1000
+            )
+
+            if keys:
+                deleted_count += self.connection.delete(*keys)
+
+        return deleted_count
+
 
 redis_conn = RedisConnection()
