@@ -338,7 +338,14 @@ async def apply_job(
         user_agent = request.headers.get("user-agent")
         ip_address = get_ip_address(request)
 
-        if await can_apply(db, job_post_id, browser_id, user_agent):
+        if await can_apply(
+            db,
+            job_post_id,
+            browser_id,
+            user_agent,
+            email=email,
+            phone_number=phone_number,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="You have already applied for this job",
