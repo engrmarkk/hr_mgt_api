@@ -41,7 +41,7 @@ from datetime import datetime, timedelta, date
 # from celery_config.utils.cel_workers import send_mail
 from fastapi import Request, HTTPException
 from logger import logger
-from sqlalchemy import func, desc, asc, case
+from sqlalchemy import func, desc, asc, case, or_
 from helpers import validate_phone_number, validate_correct_email
 from connections import redis_conn
 
@@ -1468,6 +1468,67 @@ async def get_job_postings(
         }
 
 
+async def get_job_postings_apply(
+    db,
+    status,
+    job_type,
+    department_id,
+    organization_id,
+    page,
+    per_page,
+    start_date,
+    end_date,
+    user_agent,
+    browser_id,
+):
+    try:
+        query = db.query(JobPosting)
+        if status:
+            query = query.filter_by(status=status)
+        if organization_id:
+            query = query.filter_by(organization_id=organization_id)
+        if job_type:
+            query = query.filter_by(job_type=job_type)
+        if department_id:
+            query = query.filter_by(department_id=department_id)
+        if start_date:
+            query = query.filter(JobPosting.created_at >= start_date)
+        if end_date:
+            query = query.filter(JobPosting.created_at <= end_date)
+
+        total_count = query.count()
+
+        offset = (page - 1) * per_page
+        total_pages = (total_count + per_page - 1) // per_page
+
+        job_postings = (
+            query.order_by(desc(JobPosting.created_at))
+            .offset(offset)
+            .limit(per_page)
+            .all()
+        )
+
+        return {
+            "postings": [
+                await job_post.apply_dict(db, browser_id, user_agent)
+                for job_post in job_postings
+            ],
+            "total_items": total_count,
+            "total_pages": total_pages,
+            "page": page,
+            "per_page": per_page,
+        }
+    except Exception as e:
+        logger.exception(f"Error in get_job_postings: {e}")
+        return {
+            "postings": [],
+            "total_items": 0,
+            "total_pages": 0,
+            "page": 0,
+            "per_page": 0,
+        }
+
+
 # get departments
 async def get_departments(db, organization_id):
     result = (
@@ -1496,3 +1557,132 @@ async def create_one_dpt(db, organization_id, name):
     db.add(dpt)
     db.commit()
     return dpt
+
+
+# get job_post
+async def get_job_post(db, job_post_id):
+    return db.query(JobPosting).filter_by(id=job_post_id).first()
+
+
+async def can_apply(db, post_id, browser_id, user_agent):
+    applied = (
+        db.query(AppliedCandidates)
+        .filter_by(job_posting_id=post_id, user_agent=user_agent, browser_id=browser_id)
+        .first()
+    )
+    return bool(applied)
+
+
+# create application
+async def create_application(
+    db,
+    full_name,
+    email,
+    phone_number,
+    resume,
+    cover_letter,
+    user_agent,
+    ip_address,
+    job_post_id,
+    organization_id,
+    browser_id,
+):
+    applied = AppliedCandidates(
+        job_posting_id=job_post_id,
+        full_name=full_name,
+        email=email,
+        phone_number=phone_number,
+        resume=resume,
+        cover_letter=cover_letter,
+        user_agent=user_agent,
+        ip_address=ip_address,
+        job_stage_id=await default_job_stage(db, organization_id),
+        browser_id=browser_id,
+    )
+    db.add(applied)
+    db.commit()
+    return applied
+
+
+# default job_stage
+async def default_job_stage(db, organization_id):
+    job_stage = (
+        db.query(JobStages)
+        .filter_by(organization_id=organization_id, name="Applied")
+        .first()
+    )
+    if job_stage:
+        return job_stage.id
+    job_stage = JobStages(name="Applied", organization_id=organization_id)
+    db.add(job_stage)
+    db.commit()
+    redis_conn.partial_delete(f"job_stages:{organization_id}")
+    return job_stage.id
+
+
+# get job stages
+async def get_job_stages(db, organization_id):
+    job_stages = (
+        db.query(JobStages)
+        .filter_by(
+            organization_id=organization_id,
+        )
+        .order_by(JobStages.name.asc())
+        .all()
+    )
+    return [jobstage.to_dict() for jobstage in job_stages]
+
+
+# get applicants
+async def get_applicants_hist(
+    db, page, per_page, job_stage_id, search, organization_id
+):
+    # Start the base query
+    query = (
+        db.query(AppliedCandidates)
+        .join(JobPosting, JobPosting.id == AppliedCandidates.job_posting_id)
+        .filter(JobPosting.organization_id == organization_id)
+    )
+
+    # Apply job stage filter if provided
+    if job_stage_id:
+        query = query.filter_by(job_stage_id=job_stage_id)
+
+    # Apply search filter if provided
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                AppliedCandidates.full_name.ilike(search_term),
+                AppliedCandidates.email.ilike(search_term),
+                AppliedCandidates.phone_number.ilike(search_term),
+            )
+        )
+
+    # Get total count for pagination metadata
+    total_count = query.count()
+
+    # Calculate offset
+    offset = (page - 1) * per_page
+
+    # Apply pagination and order by most recent applications first
+    applicants = (
+        query.order_by(AppliedCandidates.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+    # Format the response data
+    applicants_data = [applicant.to_dict() for applicant in applicants]
+
+    # Calculate total pages
+    total_pages = (total_count + per_page - 1) // per_page if per_page > 0 else 0
+
+    return {
+        "applicants": applicants_data,
+        "total_items": total_count,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+    }
