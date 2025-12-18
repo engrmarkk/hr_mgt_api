@@ -73,6 +73,7 @@ class Organization(Base):
     work_hours = relationship("WorkHours", back_populates="organization")
     job_postings = relationship("JobPosting", backref="organization")
     departments = relationship("Department", backref="organization")
+    job_stages = relationship("JobStages", backref="organization")
 
 
 # holiday model
