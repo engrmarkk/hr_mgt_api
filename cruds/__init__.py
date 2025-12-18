@@ -1564,12 +1564,33 @@ async def get_job_post(db, job_post_id):
     return db.query(JobPosting).filter_by(id=job_post_id).first()
 
 
-async def can_apply(db, post_id, browser_id, user_agent):
+async def can_apply(db, post_id, browser_id, user_agent, email=None, phone_number=None):
+    if email:
+        applied = (
+            db.query(AppliedCandidates)
+            .filter_by(job_posting_id=post_id, email=email)
+            .first()
+        )
+        if applied:
+            return True
+
+    # Priority 2: Check by phone number
+    if phone_number:
+        applied = (
+            db.query(AppliedCandidates)
+            .filter_by(job_posting_id=post_id, phone_number=phone_number)
+            .first()
+        )
+        if applied:
+            return True
+
+    # Priority 3: Check by browser/user agent (least reliable)
     applied = (
         db.query(AppliedCandidates)
-        .filter_by(job_posting_id=post_id, user_agent=user_agent, browser_id=browser_id)
+        .filter_by(job_posting_id=post_id, browser_id=browser_id, user_agent=user_agent)
         .first()
     )
+
     return bool(applied)
 
 
