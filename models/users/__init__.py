@@ -569,7 +569,11 @@ class JobStages(Base):
     __tablename__ = "job_stages"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     name = Column(String(50), nullable=False)
+    organization_id = Column(String(50), ForeignKey("organization.id"), nullable=False)
     applied_candidates = relationship("AppliedCandidates", backref="job_stage")
+
+    def to_dict(self):
+        return {"id": self.id, "name": self.name.title()}
 
 
 class JobPosting(Base):
@@ -598,6 +602,7 @@ class JobPosting(Base):
     )
 
     def to_dict(self):
+        is_closed = self.closing_date < datetime.now() if self.closing_date else False
         return {
             "id": self.id,
             "title": self.title.title(),
@@ -613,7 +618,29 @@ class JobPosting(Base):
             "department": self.department.name.title(),
             "created_at": format_datetime(self.created_at),
             "closing_date": format_datetime(self.closing_date),
+            "is_closed": is_closed,
         }
+
+    async def apply_dict(self, db, browser_id, user_agent):
+
+        quantity_exhausted = self.quantity == self.applied_count
+        is_active = self.status == "inactive"
+        is_closed = self.closing_date < datetime.now() if self.closing_date else False
+        return {
+            **self.to_dict(),
+            "organization": self.organization.name.title(),
+            "can_apply": not (
+                await self._can_apply(db, browser_id, user_agent)
+                or is_closed
+                or quantity_exhausted
+                or is_active
+            ),
+        }
+
+    async def _can_apply(self, db, browser_id, user_agent):
+        from cruds import can_apply
+
+        return await can_apply(db, self.id, browser_id, user_agent)
 
 
 class AppliedCandidates(Base):
@@ -626,7 +653,7 @@ class AppliedCandidates(Base):
     email = Column(String(150), nullable=False)
     phone_number = Column(String(150), nullable=False)
     resume = Column(String(200), nullable=False)
-    cover_letter = Column(Text, nullable=False)
+    cover_letter = Column(Text, nullable=True)
     job_stage_id = Column(
         String(50), ForeignKey("job_stages.id"), nullable=False, index=True
     )
@@ -635,3 +662,17 @@ class AppliedCandidates(Base):
     deleted = Column(Boolean, default=False)
     user_agent = Column(Text, nullable=False)
     ip_address = Column(String(50), nullable=False)
+    browser_id = Column(String(100), nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "job_applied": self.job_posting.title.title(),
+            "full_name": self.full_name,
+            "email": self.email,
+            "phone_number": self.phone_number,
+            "resume": self.resume,
+            "job_stage_id": self.job_stage_id,
+            "job_stage": self.job_stage.name.title(),
+            "created_at": format_datetime(self.created_at),
+        }
