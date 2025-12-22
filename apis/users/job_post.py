@@ -338,6 +338,12 @@ async def apply_job(
         user_agent = request.headers.get("user-agent")
         ip_address = get_ip_address(request)
 
+        if not full_name or not email or not phone_number or not resume:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Full name, email, phone number, resume are required",
+            )
+
         if await can_apply(
             db,
             job_post_id,
