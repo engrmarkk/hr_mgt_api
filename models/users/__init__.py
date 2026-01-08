@@ -569,10 +569,13 @@ class JobStages(Base):
     __tablename__ = "job_stages"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     name = Column(String(50), nullable=False)
+    priority = Column(Integer, nullable=True)
     organization_id = Column(String(50), ForeignKey("organization.id"), nullable=False)
     applied_candidates = relationship("AppliedCandidates", backref="job_stage")
 
-    def to_dict(self):
+    def to_dict(self, priority=False):
+        if priority:
+            return {"id": self.id, "name": self.name.title(), "priority": self.priority}
         return {"id": self.id, "name": self.name.title()}
 
 
