@@ -1634,7 +1634,7 @@ async def default_job_stage(db, organization_id):
     )
     if job_stage:
         return job_stage.id
-    job_stage = JobStages(name="Applied", organization_id=organization_id)
+    job_stage = JobStages(name="Applied", organization_id=organization_id, priority=1)
     db.add(job_stage)
     db.commit()
     redis_conn.partial_delete(f"job_stages:{organization_id}")
