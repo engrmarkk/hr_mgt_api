@@ -10,8 +10,19 @@ from cruds import (
     get_job_stages,
     can_apply,
     get_applicants_hist,
+    job_stage_exist,
+    create_job_stage,
+    get_job_stages_by_priority,
+    get_last_priority,
+    get_one_applicant,
+    get_one_job_stage,
 )
-from schemas import CreateJobPostingSchema
+from schemas import (
+    CreateJobPostingSchema,
+    CreateJobStageSchema,
+    UpdateJobStagePrioritySchema,
+    ChangeApplicantJobStageSchema,
+)
 from fastapi import (
     APIRouter,
     status,
@@ -22,7 +33,7 @@ from fastapi import (
     BackgroundTasks,
 )
 from security import get_current_user
-from models import Users
+from models import Users, JobStages
 from datetime import datetime, timezone
 from logger import logger
 from database import get_db
@@ -411,6 +422,264 @@ async def job_stages(
     except Exception as e:
         logger.exception("traceback error from get_postings")
         logger.error(f"{e} : error from get_postings")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# create job stage
+@user_router.post("/job_stages", status_code=status.HTTP_201_CREATED, tags=[job_tag])
+async def create_new_job_stage(
+    request_data: CreateJobStageSchema,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    try:
+        name = request_data.name
+        priority = request_data.priority
+        organization_id = current_user.organization_id
+
+        if priority < 1:
+            raise HTTPException(status_code=400, detail="Priority must be >= 1")
+
+        if await job_stage_exist(db, name, organization_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job stage already exists",
+            )
+        last_pr = await get_last_priority(db, organization_id)
+        if not last_pr:
+            await create_job_stage(db, name, 1, organization_id)
+            return {"detail": "Job stage created successfully"}
+        last_pr = last_pr.priority
+        if priority > last_pr + 1:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Priority must be next after last priority",
+            )
+        if last_pr + 1 == priority:
+            await create_job_stage(db, name, priority, organization_id)
+            return {"detail": "Job stage created successfully"}
+
+        # this means that the priority has a stage attached to it so we need to shift the priority of the stage
+        db.query(JobStages).filter(
+            JobStages.organization_id == organization_id, JobStages.priority >= priority
+        ).update({JobStages.priority: JobStages.priority + 1})
+
+        # Create the new stage at that spot
+        await create_job_stage(db, name, priority, organization_id)
+
+        db.commit()
+        return {"detail": "Job stage created successfully"}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from create_new_job_stage")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from create_new_job_stage")
+        logger.error(f"{e} : error from create_new_job_stage")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# workflow
+@user_router.get("/workflow", status_code=status.HTTP_200_OK, tags=[job_tag])
+async def workflow(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        workflow_stages = await get_job_stages_by_priority(
+            db, current_user.organization_id
+        )
+        return {"detail": "Job stages fetched successfully", "data": workflow_stages}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from workflow")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from workflow")
+        logger.error(f"{e} : error from workflow")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# edit job stage
+@user_router.patch(
+    "/job_stage/{job_stage_id}", status_code=status.HTTP_200_OK, tags=[job_tag]
+)
+async def modify_one_job_stage(
+    request: Request,
+    job_stage_id: str,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    try:
+        data = await request.json()
+        name = data.get("name")
+        organization_id = current_user.organization_id
+
+        if not name:
+            raise HTTPException(status_code=400, detail="Name is required")
+
+        job_stage = await get_one_job_stage(db, job_stage_id, organization_id)
+        if not job_stage:
+            raise HTTPException(status_code=404, detail="Job stage not found")
+
+        job = await job_stage_exist(db, name, organization_id)
+
+        if job and job.id != job_stage_id:
+            raise HTTPException(status_code=400, detail="Job stage already exists")
+
+        job_stage.name = name
+        db.commit()
+        redis_conn.delete(f"job_stages:{organization_id}")
+        return {"detail": "Job stage updated successfully"}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from modify_one_job_stage")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from modify_one_job_stage")
+        logger.error(f"{e} : error from modify_one_job_stage")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# delete one job stage
+@user_router.delete(
+    "/job_stage/{job_stage_id}", status_code=status.HTTP_200_OK, tags=[job_tag]
+)
+async def delete_one_stage(
+    job_stage_id: str,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    try:
+        organization_id = current_user.organization_id
+
+        job_stage = await get_one_job_stage(db, job_stage_id, organization_id)
+        if not job_stage:
+            raise HTTPException(status_code=404, detail="Job stage not found")
+
+        if job_stage.applied_candidates:
+            raise HTTPException(status_code=400, detail="Job stage has applicants")
+
+        deleted_priority = job_stage.priority
+
+        # Delete the stage
+        db.delete(job_stage)
+
+        # Shift priorities down for lower ones
+        db.query(JobStages).filter(
+            JobStages.organization_id == organization_id,
+            JobStages.priority > deleted_priority,
+        ).update({JobStages.priority: JobStages.priority - 1})
+
+        db.commit()
+
+        # clear cache
+        redis_conn.delete(f"job_stages:{organization_id}")
+
+        return {"detail": "Job stage deleted successfully"}
+
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from delete_one_stage")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from delete_one_stage")
+        logger.error(f"{e} : error from delete_one_stage")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# update job stage priority
+@user_router.patch("/workflow", status_code=status.HTTP_200_OK, tags=[job_tag])
+async def update_job_stage_priority(
+    request_data: UpdateJobStagePrioritySchema,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    try:
+        stage_id = request_data.job_stage_id
+        new_priority = request_data.priority
+        # noinspection PyArgumentList
+        stage = db.query(JobStages).filter(JobStages.id == stage_id).first()
+        if not stage:
+            raise HTTPException(status_code=404, detail="Stage not found")
+
+        old_priority = stage.priority
+
+        if new_priority == old_priority:
+            raise HTTPException(status_code=403, detail="No change needed")
+
+        # 2. Move Up
+        if new_priority < old_priority:
+            db.query(JobStages).filter(
+                JobStages.priority >= new_priority, JobStages.priority < old_priority
+            ).update({JobStages.priority: JobStages.priority + 1})
+
+        # 3. Move Down
+        else:
+            db.query(JobStages).filter(
+                JobStages.priority <= new_priority, JobStages.priority > old_priority
+            ).update({JobStages.priority: JobStages.priority - 1})
+
+        # 4. Update the target stage
+        stage.priority = new_priority
+
+        db.commit()
+        redis_conn.delete(f"job_stages:{current_user.organization_id}")
+        return {"detail": "Job stage priority updated successfully"}
+    except HTTPException as http_exc:
+        logger.info("traceback error from update_job_stage_priority")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from update_job_stage_priority")
+        logger.error(f"{e} : error from update_job_stage_priority")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# change applicant job stage
+@user_router.patch(
+    "/applicant_job_stage", status_code=status.HTTP_200_OK, tags=[job_tag]
+)
+async def change_applicant_job_stage(
+    request_data: ChangeApplicantJobStageSchema,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    try:
+        applicant_id = request_data.applicant_id
+        job_stage_id = request_data.job_stage_id
+
+        if not await get_one_job_stage(db, job_stage_id, current_user.organization_id):
+            raise HTTPException(status_code=404, detail="Stage not found")
+
+        applicant = await get_one_applicant(
+            db, applicant_id, current_user.organization_id
+        )
+        if not applicant:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+
+        applicant.job_stage_id = job_stage_id
+        db.commit()
+        redis_conn.delete(f"applicant_job_stage:{applicant_id}")
+        return {"detail": "Applicant job stage changed successfully"}
+
+    except HTTPException as http_exc:
+        logger.info("traceback error from change_applicant_job_stage")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from change_applicant_job_stage")
+        logger.error(f"{e} : error from change_applicant_job_stage")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
