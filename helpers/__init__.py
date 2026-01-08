@@ -40,7 +40,6 @@ def generate_account_number():
 
 
 def generate_session_id():
-    # Generate a random 30-digit integer
     return str(secrets.randbelow(10**30))
 
 
@@ -61,16 +60,6 @@ def hash_password(password):
 
 # validate password
 def validate_password(password):
-    """
-    :param password:
-    :return:
-
-    TODO:
-    - length must be at least 8
-    - must contain at least one lowercase letter
-    - must contain at least one uppercase letter
-    - must contain at least one digit
-    """
     if len(password) < 8:
         return "Password must be at least 8 characters long"
 
