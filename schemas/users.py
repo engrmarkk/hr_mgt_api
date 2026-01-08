@@ -165,3 +165,18 @@ class CreateJobPostingSchema(BaseModel):
         if v and v < min_salary:
             raise ValueError("max_salary must be greater than min_salary")
         return v
+
+
+class CreateJobStageSchema(BaseModel):
+    name: str
+    priority: int
+
+
+class UpdateJobStagePrioritySchema(BaseModel):
+    job_stage_id: str
+    priority: int
+
+
+class ChangeApplicantJobStageSchema(BaseModel):
+    applicant_id: str
+    job_stage_id: str
