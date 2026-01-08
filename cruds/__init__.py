@@ -1654,6 +1654,20 @@ async def get_job_stages(db, organization_id):
     return [jobstage.to_dict() for jobstage in job_stages]
 
 
+async def get_job_stages_by_priority(db, organization_id):
+    job_stages = (
+        db.query(JobStages)
+        .filter_by(organization_id=organization_id)
+        .order_by(JobStages.priority.asc())
+        .all()
+    )
+
+    stage_dicts = [job.to_dict(priority=True) for job in job_stages]
+    priorities = [job.priority for job in job_stages]
+
+    return {"stages": stage_dicts, "priorities": priorities}
+
+
 # get applicants
 async def get_applicants_hist(
     db, page, per_page, job_stage_id, search, organization_id
@@ -1707,3 +1721,55 @@ async def get_applicants_hist(
         "per_page": per_page,
         "total_pages": total_pages,
     }
+
+
+async def create_job_stage(db, name, priority, organization_id):
+    job_stage = JobStages(name=name, priority=priority, organization_id=organization_id)
+    db.add(job_stage)
+    db.commit()
+    redis_conn.delete(f"job_stages:{organization_id}")
+    return job_stage
+
+
+# job stage exist
+async def job_stage_exist(db, name, organization_id):
+    return (
+        db.query(JobStages)
+        .filter(
+            JobStages.name.ilike(name), JobStages.organization_id == organization_id
+        )
+        .first()
+    )
+
+
+# check if prority is the next after last priority
+async def get_last_priority(db, organization_id):
+    last_priority = (
+        db.query(JobStages)
+        .filter(JobStages.organization_id == organization_id)
+        .order_by(JobStages.priority.desc())
+        .first()
+    )
+    return last_priority
+
+
+async def get_one_job_stage(db, job_stage_id, organization_id):
+    return (
+        db.query(JobStages)
+        .filter(
+            JobStages.id == job_stage_id, JobStages.organization_id == organization_id
+        )
+        .first()
+    )
+
+
+async def get_one_applicant(db, applicant_id, organization_id):
+    return (
+        db.query(AppliedCandidates)
+        .join(JobPosting, JobPosting.id == AppliedCandidates.job_posting_id)
+        .filter(
+            AppliedCandidates.id == applicant_id,
+            JobPosting.organization_id == organization_id,
+        )
+        .first()
+    )
