@@ -13,21 +13,21 @@ services:
       - HrNetwork
     env_file:
       - .env
-#    depends_on:
-#      - redis
+    depends_on:
+      - redis
 
-#  redis:
-#    image: redis
-#    container_name: hr-redis
-#    networks:
-#      - HrNetwork
-#    volumes:
-#      - redis_data:/data
-#    ports:
-#      - "127.0.0.1:6380:6379"
-#    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
-#    env_file:
-#      - .env
+  redis:
+    image: redis
+    container_name: hr-redis
+    networks:
+      - HrNetwork
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6382:6379"
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    env_file:
+      - .env
 #
 #  celery:
 #    build:
@@ -47,5 +47,5 @@ networks:
   HrNetwork:
     driver: bridge
 
-#volumes:
-#  redis_data:
+volumes:
+  redis_data:
