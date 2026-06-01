@@ -23,7 +23,7 @@ settings_router = APIRouter(prefix="/settings")
 settings_tag = "Settings"
 
 
-@settings_router.put("/edit_company", tags=[settings_tag])
+@settings_router.patch("/edit_company", tags=[settings_tag])
 async def edit_company(
     request: EditCompanySchema,
     current_user: Users = Depends(get_current_user),
