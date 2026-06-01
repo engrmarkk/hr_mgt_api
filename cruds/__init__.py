@@ -58,6 +58,7 @@ async def check_if_user_in_usertable(db):
 async def check_if_org_in_orgtable(db):
     return db.query(Organization).first()
 
+
 # get one organization
 async def get_one_mgt(organization_id):
     return db.query(Organization).filter(Organization.id == organization_id).first()
@@ -539,7 +540,7 @@ async def construct_employee_details(user):
             if user.uploaded_files
             else []
         ),
-    } 
+    }
 
     return {"general": general, "job": job, "payroll": payroll, "document": document}
 
