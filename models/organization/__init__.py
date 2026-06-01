@@ -63,6 +63,7 @@ class Organization(Base):
     phone = Column(String(50), nullable=True)
     email = Column(String(50), nullable=True)
     website = Column(String(50), nullable=True)
+    overview = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     active = Column(Boolean, default=True)
