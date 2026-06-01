@@ -3,14 +3,14 @@ from typing import Optional
 
 
 class OrgSchema(BaseModel):
-    name: str
-    address: str
-    state: str
-    city: str
-    phone: str
-    email: str
-    website: str
-    country: str
+    name: Optional[str] = None
+    address: Optional[str] = None
+    state: Optional[str] = None
+    city: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    website: Optional[str] = None
+    country: Optional[str] = None
 
     class Config:
         from_attributes = True
