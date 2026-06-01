@@ -6,6 +6,7 @@ from apis import (
     cloudinary_router,
     admin_router,
     settings_router,
+    org_router
 )
 from sockets import websocket_router
 from database import engine, Base
@@ -74,5 +75,6 @@ def create_app():
     app.include_router(cloudinary_router, prefix=f"/{API_VERSION}")
     app.include_router(admin_router, prefix=f"/{API_VERSION_ADMIN}")
     app.include_router(settings_router, prefix=f"/{API_VERSION}")
+    app.include_router(org_router, prefix=f"/{API_VERSION}")
     app.include_router(websocket_router)
     return app
