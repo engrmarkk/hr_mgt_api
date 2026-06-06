@@ -17,6 +17,7 @@ from logger import logger
 from database import get_db
 from sqlalchemy.orm import Session
 from connections import redis_conn
+from cruds import get_department_tree, get_one_dept, edit_one_department, create_one_department
 
 settings_router = APIRouter(prefix="/settings")
 
@@ -53,6 +54,67 @@ async def edit_company(
         raise http_exc
     except Exception as e:
         logger.exception("traceback error from edit company")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+
+# department tree
+@settings_router.get("/department_tree", tags=[settings_tag])
+async def get_depart_tree(
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        print("current_user", current_user.organization_id)
+        dpt_tree = await get_department_tree(db, current_user.organization_id)
+        return {"detail": "Department tree fetched successfully",
+                "data": dpt_tree}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from get dept tree")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from get dept tree")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
+        )
+
+# edit one department
+@settings_router.patch("/edit_one_department/{dept_id}", tags=[settings_tag])
+async def edit_one_department(
+    dept_id: str,
+    request: Request,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        data = await request.json()
+        position = data.get("position")
+        parent_id = data.get("parent_id")
+
+        # if dept id exist
+        dpt_exist = await get_one_dept(db, dept_id)
+        if not dpt_exist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Department not found"
+            )
+
+        if parent_id:
+            if not await get_one_dept(db, parent_id):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Parent department not found"
+                )
+
+        await edit_one_department(db, dept_id, position, parent_id)
+
+        return {"detail": "Department edited successfully"}
+    except HTTPException as http_exc:
+        # Log the HTTPException if needed
+        logger.exception("traceback error from edit dept")
+        raise http_exc
+    except Exception as e:
+        logger.exception("traceback error from edit dept")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Network Error"
         )
