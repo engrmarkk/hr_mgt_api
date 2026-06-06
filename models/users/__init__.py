@@ -110,7 +110,11 @@ class Department(Base):
     __tablename__ = "departments"
     id = Column(String(50), primary_key=True, default=generate_uuid)
     name = Column(String(50), unique=True, nullable=False)
+    parent_id = Column(String(50), ForeignKey("departments.id"), nullable=True)
+    position = Column(Integer, nullable=True)
     organization_id = Column(String(50), ForeignKey("organization.id"), nullable=False)
+
+    parent = relationship("Department", remote_side=[id], backref="children")
 
     users = relationship("Users", backref="department")
     job_postings = relationship("JobPosting", backref="department")
@@ -119,7 +123,16 @@ class Department(Base):
         return {
             "id": self.id,
             "name": self.name,
+            "position": self.position,
+            "parent_id": self.parent_id,
         }
+
+    @staticmethod
+    def build_tree(departments):
+        roots = [dept for dept in departments if dept.parent_id is None]
+
+        # Convert to dict recursively
+        return [dept.to_dict() for dept in roots]
 
 
 class Users(Base):
