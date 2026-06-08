@@ -6,7 +6,7 @@ from apis import (
     cloudinary_router,
     admin_router,
     settings_router,
-    org_router
+    org_router,
 )
 from sockets import websocket_router
 from database import engine, Base
