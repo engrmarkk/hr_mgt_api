@@ -8,3 +8,8 @@ class EditCompanySchema(BaseModel):
     website: Optional[str]
     phone: Optional[str]
     email: Optional[str]
+
+
+class CreateDepartmentSchema(BaseModel):
+    name: str
+    parent_id: Optional[str] = None
