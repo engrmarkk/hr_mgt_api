@@ -1547,13 +1547,17 @@ async def get_departments(db, organization_id):
 
 
 async def get_department_tree(db, organization_id):
-    all_depts = (db.query(Department)
-                 .filter_by(organization_id=organization_id)
-                 .options(selectinload(Department.children))  # Changed to selectinload
-                 .order_by(Department.position.asc())
-                 .all())
+    all_depts = (
+        db.query(Department)
+        .filter_by(organization_id=organization_id)
+        .options(selectinload(Department.children))  # Changed to selectinload
+        # .order_by(Department.position.asc())
+        # .order_by(Department.created_at.desc())
+        .all()
+    )
     # build tree
     return Department.build_tree(all_depts)
+
 
 # department exist
 async def department_exists(db, name, organization_id):
@@ -1575,7 +1579,12 @@ async def create_one_dpt(db, organization_id, name):
 
 
 async def create_one_department(db, organization_id, name, position, parent_id):
-    dpt = Department(name=name, organization_id=organization_id, position=position, parent_id=parent_id)
+    dpt = Department(
+        name=name,
+        organization_id=organization_id,
+        position=position,
+        parent_id=parent_id,
+    )
     db.add(dpt)
     db.commit()
     return dpt
@@ -1584,6 +1593,7 @@ async def create_one_department(db, organization_id, name, position, parent_id):
 # get one dept
 async def get_one_dept(db, dept_id):
     return db.query(Department).filter_by(id=dept_id).first()
+
 
 # edit one department
 async def edit_one_department(db, dept_id, position, parent_id):
