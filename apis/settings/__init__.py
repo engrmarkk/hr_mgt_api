@@ -96,7 +96,7 @@ async def edit_a_department(
 ):
     try:
         data = await request.json()
-        position = data.get("position")
+        position = data.get("position", None)
         parent_id = data.get("parent_id")
 
         # if dept id exist
