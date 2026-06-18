@@ -119,20 +119,37 @@ class Department(Base):
     users = relationship("Users", backref="department")
     job_postings = relationship("JobPosting", backref="department")
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_children=False):
+        result = {
             "id": self.id,
             "name": self.name,
-            "position": self.position,
+            # "position": self.position,
             "parent_id": self.parent_id,
         }
+        if include_children and self.children:
+            result["children"] = [child.to_dict() for child in self.children]
+        return result
 
     @staticmethod
     def build_tree(departments):
-        roots = [dept for dept in departments if dept.parent_id is None]
+        # Create a dictionary for fast lookup
+        dept_dict = {dept.id: dept for dept in departments}
+
+        # Find roots
+        roots = []
+        for dept in departments:
+            if dept.parent_id is None:
+                roots.append(dept)
+            else:
+                # Optional: ensure parent is in the dict
+                parent = dept_dict.get(dept.parent_id)
+                if parent:
+                    # This ensures the relationship is properly set
+                    # but SQLAlchemy should already handle this via selectinload
+                    pass
 
         # Convert to dict recursively
-        return [dept.to_dict() for dept in roots]
+        return [root.to_dict(True) for root in roots]
 
 
 class Users(Base):
