@@ -1550,9 +1550,7 @@ async def get_department_tree(db, organization_id):
     all_depts = (
         db.query(Department)
         .filter_by(organization_id=organization_id)
-        .options(selectinload(Department.children))  # Changed to selectinload
-        # .order_by(Department.position.asc())
-        # .order_by(Department.created_at.desc())
+        .options(selectinload(Department.children))
         .all()
     )
     # build tree
